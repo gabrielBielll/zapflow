@@ -32,10 +32,29 @@ export default function CreateChatbotPage() {
   const nameValue = form.watch('name');
   const purposeValue = form.watch('purpose');
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
-    setName(values.name);
-    setPurpose(values.purpose);
-    router.push('/dashboard');
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    try {
+      const response = await fetch('http://localhost:3000/api/assistants', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(values),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create chatbot');
+      }
+
+      // Optionally, you can still use the context if other parts of the app need it instantly
+      setName(values.name);
+      setPurpose(values.purpose);
+
+      router.push('/dashboard');
+    } catch (error) {
+      console.error('Error creating chatbot:', error);
+      // Here you could add some user-facing error handling, like a toast message
+    }
   }
 
   return (
