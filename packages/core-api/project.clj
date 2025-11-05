@@ -14,4 +14,5 @@
   :target-path "target/%s"
   :profiles {:uberjar {:aot :all
                        :jvm-opts ["-Dclojure.compiler.direct-linking=true"]}
-             :dev {:dependencies [[ring/ring-mock "0.4.0"]]}})
+             :dev {:dependencies [[ring/ring-mock "0.4.0"]
+                                  [com.h2database/h2 "2.2.224"]]}})

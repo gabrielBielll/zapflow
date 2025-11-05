@@ -1,4 +1,5 @@
 import { ChatSimulation } from '@/components/chat-simulation';
+import { ChatbotList } from '@/components/chatbot-list';
 import { DashboardNav } from '@/components/dashboard-nav';
 
 export default function DashboardLayout({
@@ -8,10 +9,15 @@ export default function DashboardLayout({
 }) {
   return (
     <div className="flex h-screen bg-background">
-      <DashboardNav />
-      <main className="flex-grow overflow-y-auto">
-        {children}
-      </main>
+      <aside className="w-1/4 border-r overflow-y-auto">
+        <ChatbotList />
+      </aside>
+      <div className="flex flex-col flex-grow">
+        <DashboardNav />
+        <main className="flex-grow overflow-y-auto">
+          {children}
+        </main>
+      </div>
       <ChatSimulation />
     </div>
   );

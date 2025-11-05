@@ -4,10 +4,13 @@
             [next.jdbc :as jdbc]
             [reitit.ring :as ring]
             [ring.middleware.params :as params]
-            [cheshire.core :as json]))
+            [cheshire.core :as json]
+            [core-api.db.core]
+            [core-api.handlers.assistants]
+            [ring.util.response]))
 
 (def db-config
-  {:dbtype "cockroach"
+  {:dbtype "postgresql"
    :classname "org.postgresql.Driver"
    :dbname "defaultdb"
    :host "localhost"
@@ -33,11 +36,15 @@
 (def app
   (-> (ring/router
        [["/health" {:get health-check-handler}]
-        ["/webhook/whatsapp" {:post whatsapp-webhook-handler}]])
-      (ring/ring-handler)
+        ["/webhook/whatsapp" {:post whatsapp-webhook-handler}]
+        ["/api"
+         ["/assistants" {:get core-api.handlers.assistants/list-assistants-handler
+                         :post core-api.handlers.assistants/create-assistant-handler}]]])
+      (ring/ring-handler {:router-data {:datasource datasource}})
       (params/wrap-params)))
 
 (defn -main
-  "Starts the web server."
+  "Starts the web server and runs migrations."
   [& args]
+  (core-api.db.core/migrate datasource)
   (jetty/run-jetty app {:port 3000}))
