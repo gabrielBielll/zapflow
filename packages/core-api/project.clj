@@ -9,7 +9,8 @@
                  [com.github.seancorfield/next.jdbc "1.3.834"]
                  [org.postgresql/postgresql "42.2.10"]
                  [metosin/reitit "0.9.2"]
-                 [cheshire "5.13.0"]]
+                 [cheshire "5.13.0"]
+                 [clj-http "3.12.3"]]
   :main ^:skip-aot core-api.core
   :target-path "target/%s"
   :profiles {:uberjar {:aot :all
