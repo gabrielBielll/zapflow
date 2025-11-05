@@ -4,7 +4,7 @@
   "description": "",
   "main": "dist/index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "jest",
     "build": "tsc",
     "start": "node dist/index.js",
     "dev": "tsx src/index.ts"
@@ -14,12 +14,15 @@
   "license": "ISC",
   "type": "commonjs",
   "devDependencies": {
+    "@types/jest": "^30.0.0",
     "@types/node": "^24.10.0",
+    "jest": "^30.2.0",
+    "ts-jest": "^29.4.5",
     "tsx": "^4.20.6",
     "typescript": "^5.9.3"
   },
   "dependencies": {
-    "@genkit-ai/googleai": "^1.22.0",
+    "@genkit-ai/google-genai": "^1.22.0",
     "genkit": "^1.22.0"
   }
 }

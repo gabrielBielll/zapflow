@@ -8,6 +8,7 @@
 
 (def db-config
   {:dbtype "cockroach"
+   :classname "org.postgresql.Driver"
    :dbname "defaultdb"
    :host "localhost"
    :user "root"
