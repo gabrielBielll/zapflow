@@ -13,10 +13,15 @@
         (is (= "application/json" (get-in response [:headers "Content-Type"])))))))
 
 (deftest whatsapp-webhook-handler-test
-  (testing "Whatsapp webhook handler returns 200"
-    (let [request-body {:message "hello"}
-          response (whatsapp-webhook-handler (-> (mock/request :post "/webhook/whatsapp")
-                                             (mock/body (json/generate-string request-body))
-                                             (mock/content-type "application/json")))]
-      (is (= 200 (:status response)))
-      (is (= "{\"status\": \"ok\"}" (:body response))))))
+  (testing "Whatsapp webhook handler returns 200 and calls AI service"
+    (let [request-body {:body "hello"}
+          ai-service-called? (atom false)]
+      (with-redefs [clj-http.client/post (fn [url options]
+                                           (reset! ai-service-called? true)
+                                           {:status 200 :body "{\"response\": \"Hi there!\"}"})]
+        (let [response (whatsapp-webhook-handler (-> (mock/request :post "/webhook/whatsapp")
+                                                     (mock/body (json/generate-string request-body))
+                                                     (mock/content-type "application/json")))]
+          (is (= 200 (:status response)))
+          (is (= "{\"status\": \"ok\"}" (:body response)))
+          (is (true? @ai-service-called?)))))))

@@ -5,6 +5,7 @@
             [reitit.ring :as ring]
             [ring.middleware.params :as params]
             [cheshire.core :as json]
+            [clj-http.client :as client]
             [core-api.db.core]
             [core-api.handlers.assistants]
             [ring.util.response]))
@@ -20,6 +21,8 @@
 
 (def datasource (jdbc/get-datasource db-config))
 
+(def ai-service-url "http://localhost:4000/chat")
+
 (defn health-check-handler [request]
   (let [now (jdbc/execute! datasource ["SELECT NOW()"])]
     {:status 200
@@ -27,8 +30,17 @@
      :body (str now)}))
 
 (defn whatsapp-webhook-handler [request]
-  (let [body (-> request :body slurp (json/parse-string true))]
-    (println "Received message:" body)
+  (let [incoming-message (-> request :body slurp (json/parse-string true))
+        message-text (:body incoming-message)]
+    (println "Received message text:" message-text)
+    (try
+      (let [ai-response (client/post ai-service-url
+                                     {:body (json/generate-string {:message message-text})
+                                      :content-type :json
+                                      :accept :json})]
+        (println "AI Service response:" (:body ai-response)))
+      (catch Exception e
+        (println "Error calling AI service:" (.getMessage e))))
     {:status 200
      :headers {"Content-Type" "application/json"}
      :body "{\"status\": \"ok\"}"}))
