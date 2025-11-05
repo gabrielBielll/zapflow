@@ -1,29 +1,28 @@
-import { configureGenkit } from 'genkit';
-import { googleAI } from '@genkit-ai/googleai';
-import { defineFlow, startFlowsServer } from 'genkit/server';
-import * as z from 'zod';
+import { googleAI } from '@genkit-ai/google-genai';
+import { genkit, z } from 'genkit';
 
-configureGenkit({
-  plugins: [
-    googleAI({
-      apiKey: process.env.GEMINI_API_KEY,
-    }),
-  ],
-  logLevel: 'debug',
-  enableTracingAndMetrics: true,
+// Initialize Genkit with the Google AI plugin
+export const ai = genkit({
+  plugins: [googleAI()],
 });
 
-export const chatFlow = defineFlow(
+// Define the chat flow
+export const chatFlow = ai.defineFlow(
   {
     name: 'chatFlow',
     inputSchema: z.string(),
     outputSchema: z.string(),
   },
-  async (message) => {
-    // Logic to interact with the Gemini Pro model will go here.
-    // For now, we'll just return a placeholder.
-    return `You said: ${message}`;
-  }
-);
+  async (input: string) => {
+    const { output } = await ai.generate({
+      model: 'gemini-1.5-flash',
+      prompt: `User said: ${input}. Respond briefly.`,
+      output: { schema: z.string() }
+    });
 
-startFlowsServer();
+    if (!output) {
+      throw new Error('Failed to generate a response.');
+    }
+    return output;
+  },
+);
