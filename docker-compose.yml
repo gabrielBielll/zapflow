@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  frontend:
+    build:
+      context: ./packages/frontend
+      dockerfile: Dockerfile
+    ports:
+      - "9002:9002"
+    environment:
+      - NODE_ENV=development
+
+  gateway:
+    build:
+      context: ./packages/gateway
+      dockerfile: Dockerfile
+    ports:
+      - "8081:8080" # Mapping to host 8081 to avoid conflicts
+    environment:
+      - NODE_ENV=development
+
+  core-api:
+    build:
+      context: ./packages/core-api
+      dockerfile: Dockerfile
+    ports:
+      - "8082:8080" # Mapping to host 8082 to avoid conflicts
+    environment:
+      - APP_ENV=development
+
+  ai-service:
+    build:
+      context: ./packages/ai-service
+      dockerfile: Dockerfile
+    ports:
+      - "8083:8080" # Mapping to host 8083 to avoid conflicts
+    environment:
+      - NODE_ENV=development
+
+networks:
+  default:
+    driver: bridge
