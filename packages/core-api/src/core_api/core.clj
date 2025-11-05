@@ -22,6 +22,7 @@
 (def datasource (jdbc/get-datasource db-config))
 
 (def ai-service-url "http://localhost:4000/chat")
+(def gateway-url "http://localhost:5001/send-message")
 
 (defn health-check-handler [request]
   (let [now (jdbc/execute! datasource ["SELECT NOW()"])]
@@ -31,14 +32,24 @@
 
 (defn whatsapp-webhook-handler [request]
   (let [incoming-message (-> request :body slurp (json/parse-string true))
-        message-text (:body incoming-message)]
-    (println "Received message text:" message-text)
+        message-text (:body incoming-message)
+        sender-number (:from incoming-message)]
+    (println "Received message text:" message-text "from:" sender-number)
     (try
-      (let [ai-response (client/post ai-service-url
-                                     {:body (json/generate-string {:message message-text})
-                                      :content-type :json
-                                      :accept :json})]
-        (println "AI Service response:" (:body ai-response)))
+      (let [ai-response-raw (:body (client/post ai-service-url
+                                                {:body (json/generate-string {:message message-text})
+                                                 :content-type :json
+                                                 :accept :json}))
+            ai-response-body (json/parse-string ai-response-raw true)
+            ai-message (:response ai-response-body)]
+        (println "AI Service response text:" ai-message)
+        (try
+          (client/post gateway-url
+                       {:body (json/generate-string {:to sender-number :message ai-message})
+                        :content-type :json})
+          (println "Sent reply to gateway:" ai-message)
+          (catch Exception e
+            (println "Error calling Gateway service:" (.getMessage e)))))
       (catch Exception e
         (println "Error calling AI service:" (.getMessage e))))
     {:status 200
