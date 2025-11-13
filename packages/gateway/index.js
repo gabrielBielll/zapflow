@@ -1,56 +1,61 @@
-const { Client } = require('whatsapp-web.js');
-const { handleQr, handleReady, handleMessage, getQrCode } = require('./handlers');
+
+require('dotenv').config();
 const express = require('express');
 const bodyParser = require('body-parser');
+const { initializeClient, sendMessage, getClientStatus } = require('./handlers');
 
-function createApp(client) {
-    const app = express();
-    app.use(bodyParser.json());
+const app = express();
+app.use(bodyParser.json());
 
-    app.get('/qr-code', (req, res) => {
-        const qr = getQrCode();
-        if (qr) {
-            res.status(200).send({ qr });
-        } else {
-            res.status(404).send({ error: 'QR code not generated yet' });
-        }
-    });
+const PORT = process.env.PORT || 8081;
 
-    app.post('/send-message', async (req, res) => {
-        const { to, message } = req.body;
+// In-memory store for WhatsApp clients
+const clients = {};
 
-        if (!to || !message) {
-            return res.status(400).send({ error: 'Parameters "to" and "message" are required.' });
-        }
+app.post('/init-session', async (req, res) => {
+    const { channel_id } = req.body;
+    if (!channel_id) {
+        return res.status(400).send({ error: 'channel_id is required' });
+    }
 
-        try {
-            await client.sendMessage(to, message);
-            res.status(200).send({ status: 'Message sent' });
-            console.log(`Message sent to ${to}: ${message}`);
-        } catch (error) {
-            console.error('Error sending message:', error.message);
-            res.status(500).send({ error: 'Failed to send message' });
-        }
-    });
+    try {
+        const qr = await initializeClient(channel_id);
+        res.status(200).send({ qr_string: qr });
+    } catch (error) {
+        console.error(`Failed to initialize session for ${channel_id}:`, error);
+        res.status(500).send({ error: 'Failed to initialize session' });
+    }
+});
 
-    return app;
-}
+app.post('/send-message', async (req, res) => {
+    const { to, body, channel_id } = req.body;
+    if (!to || !body || !channel_id) {
+        return res.status(400).send({ error: '"to", "body", and "channel_id" are required' });
+    }
+
+    try {
+        await sendMessage(channel_id, to, body);
+        res.status(200).send({ status: 'Message sent' });
+    } catch (error) {
+        console.error(`Failed to send message for ${channel_id}:`, error);
+        res.status(500).send({ error: 'Failed to send message' });
+    }
+});
+
+app.get('/status/:channel_id', (req, res) => {
+    const { channel_id } = req.params;
+    const status = getClientStatus(channel_id);
+    if (status) {
+        res.status(200).send({ status });
+    } else {
+        res.status(404).send({ error: 'Client not found' });
+    }
+});
 
 if (require.main === module) {
-    const client = new Client();
-    const port = 5001;
-
-    // --- Existing whatsapp-web.js client setup ---
-    client.on('qr', handleQr);
-    client.on('ready', handleReady);
-    client.on('message', handleMessage);
-
-    client.initialize();
-
-    const app = createApp(client);
-    app.listen(port, () => {
-        console.log(`Gateway service listening on port ${port}`);
+    app.listen(PORT, () => {
+        console.log(`Gateway service listening on port ${PORT}`);
     });
 }
 
-module.exports = { createApp };
+module.exports = app;
