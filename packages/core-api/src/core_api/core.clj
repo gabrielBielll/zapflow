@@ -19,7 +19,7 @@
 (defn env [k default-value]
   (get (System/getenv) k default-value))
 
-(def db-url (env "DATABASE_URL" "jdbc:postgresql://root@localhost:26257/defaultdb"))
+(def db-url (env "DATABASE_URL" "jdbc:postgresql://zapflow:zapflow123@localhost:5432/zapflow"))
 (def datasource (jdbc/get-datasource db-url))
 
 (def ai-service-url (env "AI_SERVICE_URL" "http://localhost:4000"))
@@ -55,5 +55,20 @@
 (defn -main
   "Starts the web server and runs migrations."
   [& args]
-  (core-api.db.core/migrate datasource)
-  (jetty/run-jetty app {:port 3000}))
+  (try
+    (println "Connecting to database...")
+    (jdbc/execute! datasource ["SELECT 1"])
+    (println "Database connection successful!")
+    
+    (println "Running database migrations...")
+    (core-api.db.core/migrate datasource)
+    (println "Database migrations completed!")
+    
+    (let [port (Integer/parseInt (env "PORT" "8080"))]
+      (println (str "Starting server on port " port "..."))
+      (jetty/run-jetty app {:port port}))
+    
+    (catch Exception e
+      (println "Error starting application:")
+      (println (.getMessage e))
+      (System/exit 1))))

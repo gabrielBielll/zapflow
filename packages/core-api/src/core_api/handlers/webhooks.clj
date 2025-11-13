@@ -13,6 +13,7 @@
         incoming-message (-> request :body slurp (json/parse-string true))
         message-text (:body incoming-message)
         sender-number (:from incoming-message)
+        channel-id (:channel_id incoming-message)
         assistant (db/find-assistant-by-phone-number datasource sender-number)]
     (if assistant
       (let [assistant-id (:assistant-id assistant)]
@@ -21,9 +22,13 @@
                                                      :message message-text
                                                      :response nil})
         (let [history (db/list-conversation-history datasource {:assistant-id assistant-id})
-              ai-payload {:query message-text
-                          :history (map #(select-keys % [:message :response]) history)
-                          :assistant_id (str assistant-id)}]
+              ;; Convert history to the format expected by AI service
+              formatted-history (map (fn [h] 
+                                       {:role "user" :content (:message h)}) 
+                                   (reverse (take 10 history)))
+              ai-payload {:assistant_id (str assistant-id)
+                          :query message-text
+                          :history formatted-history}]
           (try
             (let [ai-response (-> (client/post (str ai-service-url "/generate")
                                                {:body (json/generate-string ai-payload)
@@ -35,10 +40,24 @@
               (db/update-latest-conversation-history datasource {:assistant-id assistant-id
                                                                   :sender sender-number
                                                                   :response ai-message})
+              ;; Send message back through gateway with channel_id
               (client/post (str gateway-url "/send-message")
-                           {:body (json/generate-string {:to sender-number :body ai-message})
+                           {:body (json/generate-string {:to sender-number 
+                                                       :body ai-message
+                                                       :channel_id channel-id})
                             :content-type :json}))
             (catch Exception e
-              (println "Error in webhook orchestration:" (.getMessage e)))))
+              (println "Error in webhook orchestration:" (.getMessage e))
+              ;; Send error message back to user
+              (try
+                (client/post (str gateway-url "/send-message")
+                             {:body (json/generate-string {:to sender-number 
+                                                         :body "Desculpe, ocorreu um erro ao processar sua mensagem. Tente novamente."
+                                                         :channel_id channel-id})
+                              :content-type :json})
+                (catch Exception send-error
+                  (println "Error sending error message:" (.getMessage send-error)))))))
         {:status 200 :body "{\"status\": \"ok\"}"})
-      {:status 404 :body "{\"error\": \"Assistant not found.\"}"})))
+      (do
+        (println (str "No assistant found for phone number: " sender-number))
+        {:status 404 :body "{\"error\": \"Assistant not found.\"}"}))))

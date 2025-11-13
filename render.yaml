@@ -1,0 +1,87 @@
+services:
+  # PostgreSQL Database
+  - type: pserv
+    name: zapflow-db
+    env: docker
+    plan: free
+    databases:
+      - name: zapflow
+        user: zapflow
+
+  # Core API Service
+  - type: web
+    name: zapflow-core-api
+    env: docker
+    dockerfilePath: ./packages/core-api/Dockerfile
+    dockerContext: ./packages/core-api
+    plan: free
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: zapflow-db
+          property: connectionString
+      - key: AI_SERVICE_URL
+        fromService:
+          type: web
+          name: zapflow-ai-service
+          property: host
+      - key: GATEWAY_URL
+        fromService:
+          type: web
+          name: zapflow-gateway
+          property: host
+      - key: PORT
+        value: 10000
+
+  # AI Service
+  - type: web
+    name: zapflow-ai-service
+    env: docker
+    dockerfilePath: ./packages/ai-service/Dockerfile
+    dockerContext: ./packages/ai-service
+    plan: free
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: GEMINI_API_KEY
+        sync: false  # This needs to be set manually in Render dashboard
+      - key: PORT
+        value: 10000
+
+  # Gateway Service
+  - type: web
+    name: zapflow-gateway
+    env: docker
+    dockerfilePath: ./packages/gateway/Dockerfile
+    dockerContext: ./packages/gateway
+    plan: free
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: CORE_API_URL
+        fromService:
+          type: web
+          name: zapflow-core-api
+          property: host
+      - key: PORT
+        value: 10000
+
+  # Frontend Service
+  - type: web
+    name: zapflow-frontend
+    env: docker
+    dockerfilePath: ./packages/frontend/Dockerfile
+    dockerContext: ./packages/frontend
+    plan: free
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NEXT_PUBLIC_CORE_API_URL
+        fromService:
+          type: web
+          name: zapflow-core-api
+          property: host
+      - key: PORT
+        value: 10000

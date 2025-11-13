@@ -1,37 +1,58 @@
-# Guia de Implantação no Render
+# Deploy no Render - Guia Completo
 
-Este guia detalha como implantar a aplicação ZapFlow na plataforma Render. A arquitetura é composta por quatro serviços principais que devem ser configurados separadamente.
+Este guia explica como fazer o deploy do ZapFlow na plataforma Render usando o plano gratuito.
 
-## Estrutura dos Serviços
+## Pré-requisitos
 
-Você precisará criar os seguintes serviços na sua conta Render:
+1. Conta no [Render](https://render.com)
+2. Repositório do projeto no GitHub/GitLab
+3. Chave da API do Google Gemini
 
-1.  **`frontend`**: Um **Static Site** para a aplicação Next.js.
-2.  **`gateway`**: Um **Web Service** para o gateway do WhatsApp.
-3.  **`core-api`**: Um **Web Service** para a API principal em Clojure.
-4.  **`ai-service`**: Um **Web Service** para o serviço de IA com Genkit.
-5.  **`database`**: Um **PostgreSQL** para o banco de dados.
+## Opção 1: Deploy Automático com render.yaml
 
----
+### 1. Conectar Repositório
 
-## 1. Configuração do Banco de Dados (`database`)
+1. Faça login no Render
+2. Clique em "New +" → "Blueprint"
+3. Conecte seu repositório GitHub/GitLab
+4. O Render detectará automaticamente o arquivo `render.yaml`
 
-1.  Crie um novo serviço do tipo **PostgreSQL** no Render.
-2.  Dê um nome a ele, por exemplo, `zapflow-db`.
-3.  Após a criação, vá para a página do banco de dados e copie a **Internal Connection String**. Você usará essa string na configuração do `core-api`.
+### 2. Configurar Variáveis de Ambiente
 
----
+Durante o processo de deploy, você precisará configurar manualmente:
 
-## 2. Configuração do `core-api`
+- **GEMINI_API_KEY**: Sua chave da API do Google Gemini
 
--   **Tipo de Serviço**: `Web Service`
--   **Nome do Serviço**: `core-api`
--   **Repositório**: Conecte ao seu repositório do GitHub/GitLab.
--   **Root Directory**: `packages/core-api`
--   **Build Command**: `lein uberjar`
--   **Start Command**: `java -jar target/core-api-0.1.0-SNAPSHOT-standalone.jar`
+### 3. Aguardar Deploy
 
-#### Variáveis de Ambiente (`core-api`)
+O Render criará automaticamente:
+- Banco de dados PostgreSQL
+- 4 serviços web (core-api, ai-service, gateway, frontend)
+- Todas as conexões entre serviços
+
+## Opção 2: Deploy Manual (Serviço por Serviço)
+
+### 1. Criar Banco de Dados PostgreSQL
+
+1. No dashboard do Render, clique em **"New +"** → **"PostgreSQL"**
+2. Configure:
+   - **Name:** `zapflow-db`
+   - **Database:** `zapflow`
+   - **User:** `zapflow`
+   - **Plan:** Free
+3. Anote a **Internal Connection String** após a criação
+
+### 2. Deploy do Core API
+
+1. Clique em **"New +"** → **"Web Service"**
+2. Conecte seu repositório
+3. Configure:
+   - **Name:** `zapflow-core-api`
+   - **Environment:** Docker
+   - **Dockerfile Path:** `./packages/core-api/Dockerfile`
+   - **Docker Context:** `./packages/core-api`
+
+#### Variáveis de Ambiente:
 
 | Chave | Valor | Descrição |
 | :--- | :--- | :--- |
@@ -39,65 +60,98 @@ Você precisará criar os seguintes serviços na sua conta Render:
 | `AI_SERVICE_URL` | `http://ai-service:10000` | URL interna para o serviço de IA. |
 | `GATEWAY_URL` | `http://gateway:10000` | URL interna para o serviço de gateway. |
 
----
+----
 
-## 3. Configuração do `ai-service`
+### 3. Deploy do AI Service
 
--   **Tipo de Serviço**: `Web Service`
--   **Nome do Serviço**: `ai-service`
--   **Repositório**: Conecte ao seu repositório.
--   **Root Directory**: `packages/ai-service`
--   **Build Command**: `npm install`
--   **Start Command**: `npm start`
+1. Clique em **"New +"** → **"Web Service"**
+2. Conecte seu repositório
+3. Configure:
+   - **Name:** `zapflow-ai-service`
+   - **Environment:** Docker
+   - **Dockerfile Path:** `./packages/ai-service/Dockerfile`
+   - **Docker Context:** `./packages/ai-service`
 
-#### Variáveis de Ambiente (`ai-service`)
+#### Variáveis de Ambiente:
 
 | Chave | Valor | Descrição |
 | :--- | :--- | :--- |
 | `GEMINI_API_KEY` | `sua-chave-de-api-do-google` | Chave da API do Google para o modelo Gemini. |
+| `NODE_ENV` | `production` | Ambiente de produção. |
 | `PORT` | `10000` | Porta que o Render usará para expor o serviço. |
 
----
+----
 
-## 4. Configuração do `gateway`
+### 4. Deploy do Gateway
 
--   **Tipo de Serviço**: `Web Service`
--   **Nome do Serviço**: `gateway`
--   **Repositório**: Conecte ao seu repositório.
--   **Root Directory**: `packages/gateway`
--   **Build Command**: `npm install`
--   **Start Command**: `node index.js`
+1. Clique em **"New +"** → **"Web Service"**
+2. Conecte seu repositório
+3. Configure:
+   - **Name:** `zapflow-gateway`
+   - **Environment:** Docker
+   - **Dockerfile Path:** `./packages/gateway/Dockerfile`
+   - **Docker Context:** `./packages/gateway`
 
-#### Variáveis de Ambiente (`gateway`)
+#### Variáveis de Ambiente:
 
 | Chave | Valor | Descrição |
 | :--- | :--- | :--- |
 | `CORE_API_URL` | `http://core-api:10000` | URL interna para o `core-api`. |
+| `NODE_ENV` | `production` | Ambiente de produção. |
 | `PORT` | `10000` | Porta que o Render usará para expor o serviço. |
 
----
+----
 
-## 5. Configuração do `frontend`
+### 5. Deploy do Frontend
 
--   **Tipo de Serviço**: `Static Site`
--   **Nome do Serviço**: `frontend`
--   **Repositório**: Conecte ao seu repositório.
--   **Root Directory**: `packages/frontend`
--   **Build Command**: `npm install && npm run build`
--   **Publish Directory**: `out`
+1. Clique em **"New +"** → **"Web Service"**
+2. Conecte seu repositório
+3. Configure:
+   - **Name:** `zapflow-frontend`
+   - **Environment:** Docker
+   - **Dockerfile Path:** `./packages/frontend/Dockerfile`
+   - **Docker Context:** `./packages/frontend`
 
-#### Variáveis de Ambiente (`frontend`)
+#### Variáveis de Ambiente:
 
 | Chave | Valor | Descrição |
 | :--- | :--- | :--- |
 | `NEXT_PUBLIC_CORE_API_URL` | A URL pública do seu serviço `core-api` no Render (ex: `https://core-api-123.onrender.com`). | Permite que o navegador do cliente se comunique com sua API. |
+| `NODE_ENV` | `production` | Ambiente de produção. |
 
----
+----
 
-## Resumo e Ordem de Implantação
+## Testando o Deploy
 
-1.  Crie o serviço de banco de dados **PostgreSQL** primeiro para obter a URL de conexão.
-2.  Crie os serviços de backend: **`core-api`**, **`ai-service`**, e **`gateway`**. Preencha as variáveis de ambiente usando os nomes dos serviços para comunicação interna.
-3.  Crie o serviço **`frontend`** por último. Use a URL pública gerada pelo Render para o `core-api` em suas variáveis de ambiente.
+1. Acesse a URL do frontend fornecida pelo Render
+2. Crie um novo assistente
+3. Vá para a seção WhatsApp
+4. Conecte seu WhatsApp escaneando o QR code
+5. Envie uma mensagem para testar a resposta automática
 
-Com essa configuração, os serviços se comunicarão internamente através da rede privada do Render, e o frontend estará acessível publicamente para os usuários.
+## Troubleshooting
+
+### Serviços não conseguem se comunicar
+- Verifique se as URLs internas estão corretas
+- Certifique-se de que todos os serviços estão rodando
+
+### Erro de conexão com banco de dados
+- Verifique se a `DATABASE_URL` está correta
+- Aguarde alguns minutos para o banco inicializar
+
+### AI Service não responde
+- Verifique se a `GEMINI_API_KEY` está configurada
+- Verifique os logs do serviço para erros
+
+### WhatsApp não conecta
+- Verifique se o Gateway está rodando
+- Verifique se as URLs de webhook estão corretas
+
+## Limitações do Plano Gratuito
+
+- Serviços podem "dormir" após 15 minutos de inatividade
+- 750 horas de uso por mês (suficiente para testes)
+- Banco de dados PostgreSQL com 1GB de armazenamento
+- Conexões limitadas ao banco de dados
+
+Para uso em produção, considere upgradar para um plano pago.

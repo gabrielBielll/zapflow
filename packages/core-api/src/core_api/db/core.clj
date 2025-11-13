@@ -192,3 +192,17 @@
   (let [latest-id (:id (first (sql/query datasource ["SELECT id FROM conversation_history WHERE assistant_id = ? AND sender = ? ORDER BY created_at DESC LIMIT 1" assistant-id sender] unqualified-kebab-opts)))]
     (when latest-id
       (sql/update! datasource :conversation_history {:response response} {:id latest-id} unqualified-kebab-opts))))
+
+(defn create-assistant-phone-number
+  "Creates a new assistant phone number association."
+  [datasource {:keys [assistant_id phone_number]}]
+  (let [id (java.util.UUID/randomUUID)]
+    (sql/insert! datasource :assistant_phone_numbers {:id id
+                                                    :assistant_id assistant_id
+                                                    :phone_number phone_number} unqualified-kebab-opts)
+    (first (sql/query datasource ["SELECT * FROM assistant_phone_numbers WHERE id = ?" id] unqualified-kebab-opts))))
+
+(defn find-channel-by-id
+  "Finds a channel by its ID."
+  [datasource channel-id]
+  (first (sql/query datasource ["SELECT * FROM channels WHERE id = ?" channel-id] unqualified-kebab-opts)))

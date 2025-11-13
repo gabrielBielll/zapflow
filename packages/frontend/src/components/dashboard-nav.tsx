@@ -2,13 +2,14 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { User, Database, Puzzle, Plug, Bot } from 'lucide-react';
+import { User, Database, Puzzle, Plug, Bot, Smartphone } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const navItems = [
   { href: '/dashboard/personality', label: 'Personalidade', icon: User },
   { href: '/dashboard/knowledge', label: 'Base de conhecimento', icon: Database },
   { href: '/dashboard/skills', label: 'Habilidades', icon: Puzzle },
+  { href: '/dashboard/whatsapp', label: 'WhatsApp', icon: Smartphone },
   { href: '/dashboard/channels', label: 'Canais', icon: Plug },
 ];
 

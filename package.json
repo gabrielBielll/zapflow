@@ -1,0 +1,18 @@
+{
+  "name": "zapflow",
+  "version": "1.0.0",
+  "description": "ZapFlow - Plataforma de assistentes virtuais para WhatsApp",
+  "scripts": {
+    "test:integration": "node test-integration.js",
+    "test:local": "./test-local.sh",
+    "dev": "docker-compose up --build",
+    "dev:detached": "docker-compose up --build -d",
+    "stop": "docker-compose down"
+  },
+  "devDependencies": {
+    "axios": "^1.6.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

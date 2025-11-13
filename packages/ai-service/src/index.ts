@@ -120,6 +120,73 @@ export const generateResponse = defineFlow(
   }
 );
 
+// HTTP Server setup
+import express from 'express';
+
+const app = express();
+app.use(express.json());
+
+const PORT = process.env.PORT || 8080;
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', service: 'ai-service' });
+});
+
+// Generate response endpoint
+app.post('/generate', async (req, res) => {
+  try {
+    const { assistant_id, query, history } = req.body;
+    
+    if (!assistant_id || !query) {
+      return res.status(400).json({ error: 'assistant_id and query are required' });
+    }
+
+    const result = await generateResponse({ 
+      assistant_id, 
+      query, 
+      history: history || [] 
+    });
+    
+    res.json(result);
+  } catch (error) {
+    console.error('Error in /generate endpoint:', error);
+    res.status(500).json({ 
+      error: 'Failed to generate response',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+// Index document endpoint
+app.post('/index-document', async (req, res) => {
+  try {
+    const { assistant_id, source_id, content } = req.body;
+    
+    if (!assistant_id || !source_id || !content) {
+      return res.status(400).json({ 
+        error: 'assistant_id, source_id, and content are required' 
+      });
+    }
+
+    const result = await indexDocument({ assistant_id, source_id, content });
+    
+    res.json(result);
+  } catch (error) {
+    console.error('Error in /index-document endpoint:', error);
+    res.status(500).json({ 
+      error: 'Failed to index document',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
 if (require.main === module) {
+  // Start Genkit
   ai.start();
+  
+  // Start HTTP server
+  app.listen(PORT, () => {
+    console.log(`AI Service HTTP server listening on port ${PORT}`);
+  });
 }

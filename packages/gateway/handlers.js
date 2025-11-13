@@ -55,10 +55,26 @@ function initializeClient(channel_id) {
             sendWebhook('/api/v1/webhook/whatsapp/status', { channel_id, status: 'pending_qr' });
         });
 
-        client.on('ready', () => {
+        client.on('ready', async () => {
             console.log(`Client is ready for ${channel_id}`);
             clientStatuses[channel_id] = 'ready';
-            sendWebhook('/api/v1/webhook/whatsapp/status', { channel_id, status: 'ready' });
+            
+            // Get phone number info
+            let phoneNumber = null;
+            try {
+                const info = client.info;
+                if (info && info.wid && info.wid.user) {
+                    phoneNumber = info.wid.user;
+                }
+            } catch (error) {
+                console.error('Error getting phone number:', error);
+            }
+            
+            sendWebhook('/api/v1/webhook/whatsapp/status', { 
+                channel_id, 
+                status: 'ready',
+                phone_number: phoneNumber 
+            });
         });
 
         client.on('disconnected', (reason) => {
@@ -70,13 +86,19 @@ function initializeClient(channel_id) {
         });
 
         client.on('message', (message) => {
-            console.log(`Message received for ${channel_id}:`, message.body);
+            console.log(`[${new Date().toISOString()}] Message received for channel ${channel_id}:`);
+            console.log(`  From: ${message.from}`);
+            console.log(`  Body: ${message.body}`);
+            console.log(`  Timestamp: ${message.timestamp}`);
+            
             const payload = {
                 from: message.from,
                 body: message.body,
                 timestamp: message.timestamp,
                 channel_id,
             };
+            
+            console.log(`[${new Date().toISOString()}] Sending webhook to Core API...`);
             sendWebhook('/api/v1/webhook/whatsapp/message', payload);
         });
 
