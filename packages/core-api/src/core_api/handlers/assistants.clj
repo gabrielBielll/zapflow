@@ -27,3 +27,15 @@
     {:status 200
      :headers {"Content-Type" "application/json"}
      :body (json/generate-string assistants)}))
+
+(defn update-assistant-settings-handler
+  "Handler for updating assistant settings."
+  [request]
+  (let [datasource (-> request :reitit.core/router :data :datasource)
+        assistant-id (-> request :params :id)
+        body (-> request :body slurp (json/parse-string true))
+        settings-data (assoc body :assistant-id (java.util.UUID/fromString assistant-id))
+        updated-settings (db/update-assistant-settings datasource settings-data)]
+    {:status 200
+     :headers {"Content-Type" "application/json"}
+     :body (json/generate-string updated-settings)}))

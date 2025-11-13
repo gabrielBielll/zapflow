@@ -3,9 +3,16 @@ const axios = require('axios');
 
 const CORE_API_URL = 'http://localhost:3000/webhook/whatsapp';
 
+let qrCodeData = null;
+
 function handleQr(qr) {
     console.log('QR RECEIVED', qr);
+    qrCodeData = qr;
     qrcode.generate(qr, { small: true });
+}
+
+function getQrCode() {
+    return qrCodeData;
 }
 
 function handleReady() {
@@ -26,4 +33,5 @@ module.exports = {
     handleQr,
     handleReady,
     handleMessage,
+    getQrCode,
 };

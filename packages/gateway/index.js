@@ -1,11 +1,20 @@
 const { Client } = require('whatsapp-web.js');
-const { handleQr, handleReady, handleMessage } = require('./handlers');
+const { handleQr, handleReady, handleMessage, getQrCode } = require('./handlers');
 const express = require('express');
 const bodyParser = require('body-parser');
 
 function createApp(client) {
     const app = express();
     app.use(bodyParser.json());
+
+    app.get('/qr-code', (req, res) => {
+        const qr = getQrCode();
+        if (qr) {
+            res.status(200).send({ qr });
+        } else {
+            res.status(404).send({ error: 'QR code not generated yet' });
+        }
+    });
 
     app.post('/send-message', async (req, res) => {
         const { to, message } = req.body;
