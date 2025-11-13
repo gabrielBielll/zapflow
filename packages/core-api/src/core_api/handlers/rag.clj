@@ -6,7 +6,7 @@
             [clj-http.client :as client])
   (:import [java.io File]))
 
-(def ai-service-url "http://localhost:4000/index-document")
+(def ai-service-url (get (System/getenv) "AI_SERVICE_URL" "http://localhost:4000"))
 
 (defn- save-uploaded-file
   "Saves the uploaded file to a local directory and returns the filepath."
@@ -31,7 +31,7 @@
                        :filepath filepath}
         new-document (db/create-document datasource document-data)]
     (try
-      (client/post ai-service-url
+      (client/post (str ai-service-url "/index-document")
                    {:body (json/generate-string {:document_id (:id new-document)
                                                  :filepath filepath})
                     :content-type :json})

@@ -11,22 +11,19 @@
             [core-api.handlers.users]
             [core-api.handlers.rag]
             [core-api.handlers.conversations]
+            [core-api.handlers.channels]
+            [core-api.handlers.webhooks]
             [reitit.ring.middleware.multipart :as multipart]
             [ring.util.response]))
 
-(def db-config
-  {:dbtype "postgresql"
-   :classname "org.postgresql.Driver"
-   :dbname "defaultdb"
-   :host "localhost"
-   :user "root"
-   :password ""
-   :port 26257})
+(defn env [k default-value]
+  (get (System/getenv) k default-value))
 
-(def datasource (jdbc/get-datasource db-config))
+(def db-url (env "DATABASE_URL" "jdbc:postgresql://root@localhost:26257/defaultdb"))
+(def datasource (jdbc/get-datasource db-url))
 
-(def ai-service-url "http://localhost:4000/chat")
-(def gateway-url "http://localhost:5001/send-message")
+(def ai-service-url (env "AI_SERVICE_URL" "http://localhost:4000"))
+(def gateway-url (env "GATEWAY_URL" "http://localhost:5001"))
 
 (defn health-check-handler [request]
   (let [now (jdbc/execute! datasource ["SELECT NOW()"])]
@@ -34,62 +31,26 @@
      :headers {"Content-Type" "application/json"}
      :body (str now)}))
 
-(defn whatsapp-webhook-handler [request]
-  (let [datasource (-> request :reitit.core/router :data :datasource)
-        incoming-message (-> request :body slurp (json/parse-string true))
-        message-text (:body incoming-message)
-        sender-number (:from incoming-message)
-        assistant (core-api.db.core/find-assistant-by-phone-number datasource sender-number)]
-    (if assistant
-      (let [assistant-id (:assistant-id assistant)]
-        (println "Received message text:" message-text "from:" sender-number "for assistant:" assistant-id)
-        (try
-          (let [ai-response-raw (:body (client/post ai-service-url
-                                                    {:body (json/generate-string {:message message-text})
-                                                     :content-type :json
-                                                     :accept :json}))
-                ai-response-body (json/parse-string ai-response-raw true)
-                ai-message (:response ai-response-body)]
-            (println "AI Service response text:" ai-message)
-            (try
-              (client/post gateway-url
-                           {:body (json/generate-string {:to sender-number :message ai-message})
-                            :content-type :json})
-              (println "Sent reply to gateway:" ai-message)
-              (catch Exception e
-                (println "Error calling Gateway service:" (.getMessage e))))
-            (core-api.db.core/create-conversation-history
-             datasource
-             {:assistant-id assistant-id
-              :sender sender-number
-              :message message-text
-              :response ai-message}))
-          (catch Exception e
-            (println "Error calling AI service:" (.getMessage e))))
-        {:status 200
-         :headers {"Content-Type" "application/json"}
-         :body "{\"status\": \"ok\"}"})
-      {:status 404
-       :headers {"Content-Type" "application/json"}
-       :body "{\"error\": \"Assistant not found for this phone number.\"}"})))
-
 (def app
-  (-> (ring/router
-       [["/health" {:get health-check-handler}]
-        ["/webhook/whatsapp" {:post whatsapp-webhook-handler}]
-        ["/api"
-         {:middleware [multipart/multipart-middleware]}
-         ["/users" {:get core-api.handlers.users/list-users-handler
-                    :post core-api.handlers.users/create-user-handler}]
-         ["/assistants"
-          ["/" {:get core-api.handlers.assistants/list-assistants-handler
-                :post core-api.handlers.assistants/create-assistant-handler}]
-          ["/:id/settings" {:put core-api.handlers.assistants/update-assistant-settings-handler}]
-          ["/:id/conversations" {:get core-api.handlers.conversations/list-conversation-history-handler}]]
-         ["/rag"
-          ["/upload" {:post core-api.handlers.rag/upload-document-handler}]]]])
-      (ring/ring-handler {:router-data {:datasource datasource}})
-      (params/wrap-params)))
+  (-> (ring/ring-handler
+       (ring/router
+        ["/api/v1"
+         ["/frontend"
+          {:middleware [multipart/multipart-middleware]}
+          ["/users" {:get core-api.handlers.users/list-users-handler
+                     :post core-api.handlers.users/create-user-handler}]
+          ["/assistants"
+           ["/" {:get core-api.handlers.assistants/list-assistants-handler
+                 :post core-api.handlers.assistants/create-assistant-handler}]
+           ["/:id/settings" {:put core-api.handlers.assistants/update-assistant-settings-handler}]
+           ["/:id/conversations" {:get core-api.handlers.conversations/list-conversation-history-handler}]
+           ["/:id/knowledge/upload" {:post core-api.handlers.rag/upload-document-handler}]
+           ["/:id/channels/whatsapp" {:post core-api.handlers.channels/init-whatsapp-channel-handler}]]]
+         ["/webhook"
+          ["/whatsapp/message" {:post core-api.handlers.webhooks/whatsapp-message-webhook-handler}]
+          ["/whatsapp/status" {:post core-api.handlers.channels/whatsapp-status-webhook-handler}]]]
+        {:data {:datasource datasource}}))
+      params/wrap-params))
 
 (defn -main
   "Starts the web server and runs migrations."
