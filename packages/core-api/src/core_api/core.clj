@@ -14,7 +14,11 @@
             [core-api.handlers.channels]
             [core-api.handlers.webhooks]
             [reitit.ring.middleware.multipart :as multipart]
-            [ring.util.response]))
+            [ring.util.response])
+  (:import [org.postgresql Driver]))
+
+;; Explicitly load the PostgreSQL driver
+(Class/forName "org.postgresql.Driver")
 
 (defn env [k default-value]
   (get (System/getenv) k default-value))

@@ -7,12 +7,11 @@
                  [ring/ring-core "1.12.0"]
                  [ring/ring-jetty-adapter "1.12.0"]
                  [com.github.seancorfield/next.jdbc "1.3.834"]
-                 [org.postgresql/postgresql "42.2.10"]
+                 [org.postgresql/postgresql "42.7.3"]
                  [metosin/reitit "0.9.2"]
                  [cheshire "5.13.0"]
                  [clj-http "3.12.3"]
-                 [buddy/buddy-hashers "1.4.0"]
-                 [org.postgresql/postgresql "42.7.3"]]
+                 [buddy/buddy-hashers "1.4.0"]]
   :main ^:skip-aot core-api.core
   :target-path "target/%s"
   :profiles {:uberjar {:aot :all
