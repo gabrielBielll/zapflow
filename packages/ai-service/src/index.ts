@@ -1,9 +1,11 @@
-import { genkit, defineFlow, z, Document, textSplitter } from 'genkit';
+// Importações Corrigidas
+import { configureGenkit } from 'genkit';
+import { defineFlow, z, Document, textSplitter } from '@genkit-ai/core';
 import { googleAI } from '@genkit-ai/googleai';
 import { chroma, chromaIndexerRef, chromaRetrieverRef } from 'genkitx-chromadb';
 
-// Configure and export the Genkit instance
-export const ai = genkit({
+// Configuração Correta (configureGenkit)
+export const ai = configureGenkit({
   plugins: [
     googleAI(),
     chroma([
