@@ -75,6 +75,18 @@
      PRIMARY KEY (id)
    )")
 
+(def create-channels-table-sql
+  "SQL string to create the channels table."
+  "CREATE TABLE IF NOT EXISTS channels (
+     id UUID NOT NULL,
+     assistant_id UUID NOT NULL,
+     channel_type VARCHAR(50) NOT NULL,
+     status VARCHAR(50) NOT NULL,
+     created_at TIMESTAMP WITH TIME ZONE DEFAULT current_timestamp,
+     updated_at TIMESTAMP WITH TIME ZONE DEFAULT current_timestamp,
+     PRIMARY KEY (id)
+   )")
+
 (defn migrate
   "Applies database migrations."
   [datasource]
@@ -83,7 +95,8 @@
   (jdbc/execute! datasource [create-assistants-table-sql])
   (jdbc/execute! datasource [create-assistant-settings-table-sql])
   (jdbc/execute! datasource [create-conversation-history-table-sql])
-  (jdbc/execute! datasource [create-assistant-phone-numbers-table-sql]))
+  (jdbc/execute! datasource [create-assistant-phone-numbers-table-sql])
+  (jdbc/execute! datasource [create-channels-table-sql]))
 
 (def unqualified-kebab-opts
   {:builder-fn rs/as-unqualified-kebab-maps})
@@ -156,3 +169,26 @@
   "Finds an assistant by phone number."
   [datasource phone-number]
   (first (sql/query datasource ["SELECT assistant_id FROM assistant_phone_numbers WHERE phone_number = ?" phone-number] unqualified-kebab-opts)))
+
+(defn create-channel
+  "Creates a new channel for an assistant."
+  [datasource {:keys [assistant_id channel_type status]}]
+  (let [id (java.util.UUID/randomUUID)]
+    (sql/insert! datasource :channels {:id id
+                                    :assistant_id assistant_id
+                                    :channel_type channel_type
+                                    :status status} unqualified-kebab-opts)
+    (first (sql/query datasource ["SELECT * FROM channels WHERE id = ?" id] unqualified-kebab-opts))))
+
+(defn update-channel-status
+  "Updates the status of a channel."
+  [datasource {:keys [id status]}]
+  (sql/update! datasource :channels {:status status} {:id id} unqualified-kebab-opts)
+  (first (sql/query datasource ["SELECT * FROM channels WHERE id = ?" id] unqualified-kebab-opts)))
+
+(defn update-latest-conversation-history
+  "Updates the latest conversation history record with the assistant's response."
+  [datasource {:keys [assistant-id sender response]}]
+  (let [latest-id (:id (first (sql/query datasource ["SELECT id FROM conversation_history WHERE assistant_id = ? AND sender = ? ORDER BY created_at DESC LIMIT 1" assistant-id sender] unqualified-kebab-opts)))]
+    (when latest-id
+      (sql/update! datasource :conversation_history {:response response} {:id latest-id} unqualified-kebab-opts))))
