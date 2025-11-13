@@ -29,7 +29,7 @@ describe('ZapFlow AI Flows', () => {
   });
 
   it('should index a document successfully', async () => {
-    const result = await indexDocument.run({
+    const result = await indexDocument({
       assistant_id: assistantId,
       source_id: sourceId,
       content: testContent,
@@ -57,16 +57,16 @@ describe('ZapFlow AI Flows', () => {
   it('should generate a response using RAG context', async () => {
     // Mock retriever
     retrieveSpy.mockResolvedValue([
-      { text: () => 'O ZapFlow-Max custa R$ 100 por mês.' }
+      { text: 'O ZapFlow-Max custa R$ 100 por mês.' }
     ] as any);
 
     // Mock LLM
     const mockResponse = 'O custo do ZapFlow-Max é de R$ 100 por mês.';
     generateSpy.mockResolvedValue({
-      text: () => mockResponse
+      text: mockResponse
     } as any);
 
-    const result = await generateResponse.run({
+    const result = await generateResponse({
       assistant_id: assistantId,
       query: 'Quanto custa o ZapFlow-Max?',
       history: [],
@@ -93,10 +93,10 @@ describe('ZapFlow AI Flows', () => {
 
     const mockResponse = "Desculpe, não tenho informações sobre o preço.";
     generateSpy.mockResolvedValue({
-      text: () => mockResponse
+      text: mockResponse
     } as any);
 
-    const result = await generateResponse.run({
+    const result = await generateResponse({
       assistant_id: assistantId,
       query: 'Quanto custa?',
       history: [],
