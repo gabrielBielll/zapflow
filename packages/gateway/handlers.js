@@ -4,7 +4,7 @@ const { Client, LocalAuth } = require('whatsapp-web.js');
 const axios = require('axios');
 const { Queue, Worker } = require('bullmq');
 
-const CORE_API_URL = process.env.CORE_API_URL || 'http://core-api:8082';
+const CORE_API_URL = process.env.CORE_API_URL;
 const clients = {};
 const clientStatuses = {};
 
