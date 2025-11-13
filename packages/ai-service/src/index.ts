@@ -1,148 +1,125 @@
+import { genkit, defineFlow, z, Document, textSplitter } from 'genkit';
 import { googleAI } from '@genkit-ai/google-genai';
-import { genkit, z, embed } from 'genkit/ai';
-import express from 'express';
-import bodyParser from 'body-parser';
-import { VectorDB } from 'imvectordb';
-import * as fs from 'fs';
-const pdf = require('pdf-parse');
+import { chroma, chromaIndexerRef, chromaRetrieverRef } from 'genkitx-chromadb';
 
-// Initialize Genkit with the Google AI plugin
+// Configure and export the Genkit instance
 export const ai = genkit({
-  plugins: [googleAI()],
+  plugins: [
+    googleAI(),
+    chroma([
+      {
+        collectionName: 'zapflow_rag',
+        embedder: googleAI.embedder('text-embedding-004'),
+      },
+    ]),
+  ],
 });
 
-const textEmbedding004 = googleAI.embedder('text-embedding-004');
+// Schemas
+const IndexDocumentRequestSchema = z.object({
+  assistant_id: z.string(),
+  source_id: z.string(),
+  content: z.string(),
+});
 
-// Initialize in-memory vector database
-const db = new VectorDB();
+const IndexDocumentResponseSchema = z.object({
+  status: z.string(),
+  chunks_indexed: z.number(),
+});
 
-// Define the chat flow
-export const chatFlow = ai.defineFlow(
+const ChatMessageSchema = z.object({
+    role: z.enum(['user', 'model']),
+    content: z.string(),
+});
+
+const GenerateResponseRequestSchema = z.object({
+    assistant_id: z.string(),
+    query: z.string(),
+    history: z.array(ChatMessageSchema),
+});
+
+const GenerateResponseResponseSchema = z.object({
+    response: z.string(),
+});
+
+
+// Flows
+export const indexDocument = defineFlow(
   {
-    name: 'chatFlow',
-    inputSchema: z.string(),
-    outputSchema: z.string(),
+    name: 'indexDocument',
+    inputSchema: IndexDocumentRequestSchema,
+    outputSchema: IndexDocumentResponseSchema,
   },
-  async (input: string) => {
-    // 1. Create an embedding for the user's input
-    const queryEmbedding = await embed({
-        embedder: textEmbedding004,
-        content: input,
-    });
+  async (payload) => {
+    try {
+      const { assistant_id, source_id, content } = payload;
+      const chunks = await textSplitter(content, { chunkSize: 1000, chunkOverlap: 100 });
+      const documents = chunks.map((chunk) =>
+        Document.fromText(chunk, { assistant_id, source_id })
+      );
 
-    // 2. Search for relevant context in the vector DB
-    const searchResults = await db.query(queryEmbedding, 3);
-    const context = searchResults.map(r => r.document.metadata.text).join('\n---\n');
+      await ai.index({
+        indexer: chromaIndexerRef({ collectionName: 'zapflow_rag' }),
+        documents,
+      });
 
-    // 3. Construct the prompt with the retrieved context
-    const augmentedPrompt = `
-      You are a helpful assistant. Answer the user's question based on the following context.
-      If the context does not contain the answer, say that you don't know.
-
-      Context:
-      ${context}
-
-      User's Question:
-      ${input}
-    `;
-
-    // 4. Generate a response using the augmented prompt
-    const { output } = await ai.generate({
-      model: 'gemini-1.5-flash',
-      prompt: augmentedPrompt,
-      output: { schema: z.string() }
-    });
-
-    if (!output) {
-      throw new Error('Failed to generate a response.');
+      return { status: 'success', chunks_indexed: documents.length };
+    } catch (error) {
+      console.error('Error indexing document:', error);
+      throw new Error('Failed to index document in vector store.');
     }
-    return output;
-  },
+  }
 );
 
-// Create Express server
-export const app = express();
-const port = 4000;
+export const generateResponse = defineFlow(
+  {
+    name: 'generateResponse',
+    inputSchema: GenerateResponseRequestSchema,
+    outputSchema: GenerateResponseResponseSchema,
+  },
+  async (payload) => {
+    try {
+      const { assistant_id, query, history } = payload;
+      let ragContext = "No relevant information found in the knowledge base.";
 
-app.use(bodyParser.json());
-
-// Define the /chat endpoint
-app.post('/chat', async (req, res) => {
-  const { message } = req.body;
-
-  if (!message) {
-    return res.status(400).send({ error: 'Message is required' });
-  }
-
-  try {
-    const response = await chatFlow.run(message);
-    res.send({ response });
-  } catch (error) {
-    console.error(error);
-    res.status(500).send({ error: 'Failed to process chat message' });
-  }
-});
-
-// Define the /index-document endpoint
-app.post('/index-document', async (req, res) => {
-  const { document_id, filepath } = req.body;
-
-  if (!document_id || !filepath) {
-    return res.status(400).send({ error: 'document_id and filepath are required' });
-  }
-
-  console.log(`Indexing document ${document_id} from ${filepath}`);
-
-  try {
-    const fileBuffer = fs.readFileSync(filepath);
-    let textContent = '';
-
-    if (filepath.endsWith('.pdf')) {
-        const data = await pdf(fileBuffer);
-        textContent = data.text;
-    } else if (filepath.endsWith('.txt')) {
-        textContent = fileBuffer.toString('utf-8');
-    } else {
-        return res.status(400).send({ error: 'Unsupported file type' });
-    }
-
-    // Simple chunking strategy
-    const chunkSize = 1000;
-    const chunks: string[] = [];
-    for (let i = 0; i < textContent.length; i += chunkSize) {
-        chunks.push(textContent.substring(i, i + chunkSize));
-    }
-
-    // Process and add each chunk individually
-    for (let i = 0; i < chunks.length; i++) {
-        const chunk = chunks[i];
-        const embedding = await embed({
-            embedder: textEmbedding004,
-            content: chunk
+      try {
+        const retrievedDocs = await ai.retrieve({
+          retriever: chromaRetrieverRef({ collectionName: 'zapflow_rag' }),
+          query,
+          options: { where: { assistant_id }, k: 3 },
         });
+        if (retrievedDocs.length > 0) {
+            ragContext = retrievedDocs.map(doc => doc.text()).join('\n---\n');
+        }
+      } catch (error) {
+          console.error('Error retrieving from vector store:', error);
+          // Proceed without RAG context if the vector store fails
+      }
 
-        await db.add({
-            id: `${document_id}-chunk-${i}`,
-            embedding: embedding,
-            metadata: {
-                text: chunk,
-                documentId: document_id
-            }
-        });
+      const personalityPrompt = "You are a helpful and friendly assistant.";
+      const finalPrompt = `
+        ${personalityPrompt}
+        Context:
+        ${ragContext}
+        Chat History:
+        ${history.map(msg => `${msg.role}: ${msg.content}`).join('\n')}
+        User's Question:
+        ${query}
+      `;
+
+      const llmResponse = await ai.generate({
+        model: 'gemini-1.5-flash',
+        prompt: finalPrompt,
+      });
+
+      return { response: llmResponse.text() };
+    } catch (error) {
+        console.error('Error generating LLM response:', error);
+        return { response: "I'm sorry, I encountered an error while generating a response. Please try again." };
     }
-
-    console.log(`Successfully indexed ${chunks.length} chunks for document ${document_id}`);
-    res.send({ status: 'indexing_completed', chunks: chunks.length });
-
-  } catch (error) {
-      console.error('Error indexing document:', error);
-      res.status(500).send({ error: 'Failed to index document' });
   }
-});
+);
 
-// Start the server if running directly
 if (require.main === module) {
-  app.listen(port, () => {
-    console.log(`AI service listening on port ${port}`);
-  });
+  ai.start();
 }
