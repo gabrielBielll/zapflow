@@ -1,5 +1,5 @@
 import { genkit, defineFlow, z, Document, textSplitter } from 'genkit';
-import { googleAI } from '@genkit-ai/google-genai';
+import { googleAI } from '@genkit-ai/googleai';
 import { chroma, chromaIndexerRef, chromaRetrieverRef } from 'genkitx-chromadb';
 
 // Configure and export the Genkit instance
