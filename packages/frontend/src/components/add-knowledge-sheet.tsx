@@ -3,14 +3,15 @@
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger, SheetFooter, SheetClose } from '@/components/ui/sheet';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { UploadCloud, Link as LinkIcon, PlusCircle, Trash2 } from 'lucide-react';
+import { UploadCloud, Link as LinkIcon, PlusCircle, Trash2, Loader2 } from 'lucide-react';
 import { useChatbot } from '@/context/ChatbotContext';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Input } from './ui/input';
 import { useFieldArray, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Form, FormControl, FormField, FormItem } from './ui/form';
+import { uploadFile } from '@/services/coreApiService';
 
 const urlSchema = z.object({
   urls: z.array(z.object({ value: z.string().url('Por favor, insira uma URL válida.') })),
@@ -19,6 +20,8 @@ const urlSchema = z.object({
 export function AddKnowledgeSheet() {
   const { addKnowledgeFile, addKnowledgeUrl } = useChatbot();
   const [open, setOpen] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const form = useForm({
     resolver: zodResolver(urlSchema),
@@ -32,9 +35,31 @@ export function AddKnowledgeSheet() {
     name: 'urls',
   });
 
-  const handleAddFile = () => {
-    addKnowledgeFile({ name: 'documento_exemplo.pdf', type: 'PDF', size: '2.3 MB' });
-    setOpen(false);
+  const handleFileSelect = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    try {
+      // TODO: O endpoint precisa retornar os metadados do arquivo para exibirmos corretamente
+      await uploadFile(file);
+      // Simulação, já que o endpoint não retorna os dados
+      addKnowledgeFile({ name: file.name, type: file.type, size: `${(file.size / 1024 / 1024).toFixed(2)} MB` });
+      setOpen(false);
+    } catch (error) {
+      // TODO: Adicionar um tratamento de erro mais robusto (ex: toast notification)
+      console.error('Upload failed:', error);
+    } finally {
+      setIsUploading(false);
+      // Limpa o input para permitir o upload do mesmo arquivo novamente
+      if(fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
   };
   
   const handleAddUrls = (data: z.infer<typeof urlSchema>) => {
@@ -69,20 +94,41 @@ export function AddKnowledgeSheet() {
           </TabsList>
           <TabsContent value="file">
             <div className="mt-8 flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-border p-12 text-center">
-              <UploadCloud className="h-12 w-12 text-muted-foreground" />
-              <h3 className="mt-4 text-lg font-semibold text-foreground">
-                Arraste e solte arquivos aqui
-              </h3>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Suporta PDF, DOCX (max 5MB)
-              </p>
-              <Button type="button" variant="outline" className="mt-4" onClick={handleAddFile}>
-                Ou clique para selecionar
-              </Button>
+              {isUploading ? (
+                <>
+                  <Loader2 className="h-12 w-12 text-muted-foreground animate-spin" />
+                  <h3 className="mt-4 text-lg font-semibold text-foreground">
+                    Enviando arquivo...
+                  </h3>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Aguarde enquanto processamos o documento.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <UploadCloud className="h-12 w-12 text-muted-foreground" />
+                  <h3 className="mt-4 text-lg font-semibold text-foreground">
+                    Arraste e solte arquivos aqui
+                  </h3>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Suporta PDF, TXT (max 5MB)
+                  </p>
+                  <Input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleFileChange}
+                    className="hidden"
+                    accept=".pdf,.txt"
+                  />
+                  <Button type="button" variant="outline" className="mt-4" onClick={handleFileSelect} disabled={isUploading}>
+                    Ou clique para selecionar
+                  </Button>
+                </>
+              )}
             </div>
              <SheetFooter className="mt-6">
                 <SheetClose asChild>
-                    <Button variant="outline">Cancelar</Button>
+                    <Button variant="outline" disabled={isUploading}>Cancelar</Button>
                 </SheetClose>
             </SheetFooter>
           </TabsContent>
