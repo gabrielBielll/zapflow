@@ -52,6 +52,20 @@ app.post('/chat', async (req, res) => {
   }
 });
 
+// Define the /index-document endpoint
+app.post('/index-document', async (req, res) => {
+  const { document_id, filepath } = req.body;
+
+  if (!document_id || !filepath) {
+    return res.status(400).send({ error: 'document_id and filepath are required' });
+  }
+
+  console.log(`Indexing document ${document_id} from ${filepath}`);
+  // TODO: Implement actual document indexing logic here
+
+  res.send({ status: 'indexing_started' });
+});
+
 // Start the server if running directly
 if (require.main === module) {
   app.listen(port, () => {
