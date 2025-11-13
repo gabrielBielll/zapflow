@@ -40,4 +40,5 @@ COPY --from=builder /app/next.config.ts ./next.config.ts
 EXPOSE 10000
 
 # Inicia o app usando a variável $PORT fornecida pelo Render
-CMD ["sh", "-c", "npm start -- -p $PORT"]
+# Usamos 'npx' para executar o 'next' diretamente e garantir que a $PORT seja usada.
+CMD ["sh", "-c", "npx next start -p $PORT"]
