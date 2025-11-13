@@ -17,25 +17,38 @@
             [ring.util.response])
   (:import [org.postgresql Driver]))
 
-;; Explicitly load the PostgreSQL driver
-(Class/forName "org.postgresql.Driver")
-
 (defn env [k default-value]
   (get (System/getenv) k default-value))
 
-(def db-url (env "DATABASE_URL" "jdbc:postgresql://zapflow:zapflow123@localhost:5432/zapflow"))
-(def datasource (jdbc/get-datasource db-url))
+(defn create-datasource []
+  (try
+    ;; Explicitly load the PostgreSQL driver
+    (println "Loading PostgreSQL driver...")
+    (Class/forName "org.postgresql.Driver")
+    (println "PostgreSQL driver loaded successfully!")
+    
+    (let [db-url (env "DATABASE_URL" "jdbc:postgresql://zapflow:zapflow123@localhost:5432/zapflow")]
+      (println (str "Database URL: " (if (.contains db-url "password") 
+                                       (clojure.string/replace db-url #":[^:@]+@" ":***@")
+                                       db-url)))
+      (println "Creating datasource...")
+      (jdbc/get-datasource db-url))
+    (catch Exception e
+      (println "Error creating datasource:")
+      (println (.getMessage e))
+      (throw e))))
 
 (def ai-service-url (env "AI_SERVICE_URL" "http://localhost:4000"))
 (def gateway-url (env "GATEWAY_URL" "http://localhost:5001"))
 
 (defn health-check-handler [request]
-  (let [now (jdbc/execute! datasource ["SELECT NOW()"])]
+  (let [datasource (create-datasource)
+        now (jdbc/execute! datasource ["SELECT NOW()"])]
     {:status 200
      :headers {"Content-Type" "application/json"}
      :body (str now)}))
 
-(def app
+(defn create-app [datasource]
   (-> (ring/ring-handler
        (ring/router
         ["/api/v1"
@@ -61,16 +74,18 @@
   [& args]
   (try
     (println "Connecting to database...")
-    (jdbc/execute! datasource ["SELECT 1"])
-    (println "Database connection successful!")
-    
-    (println "Running database migrations...")
-    (core-api.db.core/migrate datasource)
-    (println "Database migrations completed!")
-    
-    (let [port (Integer/parseInt (env "PORT" "8080"))]
-      (println (str "Starting server on port " port "..."))
-      (jetty/run-jetty app {:port port}))
+    (let [datasource (create-datasource)]
+      (jdbc/execute! datasource ["SELECT 1"])
+      (println "Database connection successful!")
+      
+      (println "Running database migrations...")
+      (core-api.db.core/migrate datasource)
+      (println "Database migrations completed!")
+      
+      (let [port (Integer/parseInt (env "PORT" "8080"))
+            app (create-app datasource)]
+        (println (str "Starting server on port " port "..."))
+        (jetty/run-jetty app {:port port})))
     
     (catch Exception e
       (println "Error starting application:")
