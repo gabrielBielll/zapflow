@@ -34,11 +34,10 @@ RUN npm install --omit=dev
 
 # Copy built assets from the builder stage
 COPY --from=builder /app/.next ./.next
-COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/next.config.ts ./next.config.ts
 
-# Expose the port the app runs on
-EXPOSE 9002
+# Expõe a porta que o Render espera (definida no render.yaml)
+EXPOSE 10000
 
-# The Next.js app starts on port 9002 as per package.json
-CMD ["npm", "start", "--", "-p", "9002"]
+# Inicia o app usando a variável $PORT fornecida pelo Render
+CMD ["sh", "-c", "npm start -- -p $PORT"]
