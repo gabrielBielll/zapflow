@@ -58,9 +58,16 @@
     (println "Headers:" (select-keys (:headers request) ["content-type" "user-agent" "origin" "referer"]))
     (println "Origin header:" (get (:headers request) "origin"))
     (let [response (handler request)]
-      (println "Response status:" (:status response))
-      (println "Response headers:" (select-keys (:headers response) ["access-control-allow-origin"]))
-      response)))
+      (if response
+        (do
+          (println "Response status:" (:status response))
+          (println "Response headers:" (select-keys (:headers response) ["access-control-allow-origin"]))
+          response)
+        (do
+          (println "WARNING: Handler returned nil response!")
+          {:status 500
+           :headers {"Content-Type" "application/json"}
+           :body (json/generate-string {:error "Internal server error" :message "Handler returned nil response"})})))))
 
 (defn create-app [datasource]
   (-> (ring/ring-handler
