@@ -57,7 +57,12 @@
     (println "Query string:" (:query-string request))
     (println "Headers:" (select-keys (:headers request) ["content-type" "user-agent" "origin" "referer"]))
     (println "Origin header:" (get (:headers request) "origin"))
+    (println "Request body available:" (not (nil? (:body request))))
+    (println "Request params:" (:params request))
+    (println "Reitit match:" (:reitit.core/match request))
+    (println "About to call handler...")
     (let [response (handler request)]
+      (println "Handler returned response type:" (type response))
       (if response
         (do
           (println "Response status:" (:status response))
