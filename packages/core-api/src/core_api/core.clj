@@ -61,18 +61,25 @@
     (println "Request params:" (:params request))
     (println "Reitit match:" (:reitit.core/match request))
     (println "About to call handler...")
-    (let [response (handler request)]
-      (println "Handler returned response type:" (type response))
-      (if response
-        (do
-          (println "Response status:" (:status response))
-          (println "Response headers:" (select-keys (:headers response) ["access-control-allow-origin"]))
-          response)
-        (do
-          (println "WARNING: Handler returned nil response!")
-          {:status 500
-           :headers {"Content-Type" "application/json"}
-           :body (json/generate-string {:error "Internal server error" :message "Handler returned nil response"})})))))
+    (try
+      (let [response (handler request)]
+        (println "Handler returned response type:" (type response))
+        (if response
+          (do
+            (println "Response status:" (:status response))
+            (println "Response headers:" (select-keys (:headers response) ["access-control-allow-origin"]))
+            response)
+          (do
+            (println "WARNING: Handler returned nil response!")
+            {:status 500
+             :headers {"Content-Type" "application/json"}
+             :body (json/generate-string {:error "Internal server error" :message "Handler returned nil response"})})))
+      (catch Exception e
+        (println "ERROR in request processing:" (.getMessage e))
+        (println "Stack trace:" (str e))
+        {:status 500
+         :headers {"Content-Type" "application/json"}
+         :body (json/generate-string {:error "Internal server error" :message (.getMessage e)})}))))
 
 (defn datasource-middleware [handler datasource]
   (fn [request]
