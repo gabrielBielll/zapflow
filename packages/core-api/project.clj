@@ -12,7 +12,8 @@
                  [metosin/reitit "0.9.2"]
                  [cheshire "5.13.0"]
                  [clj-http "3.12.3"]
-                 [buddy/buddy-hashers "1.4.0"]]
+                 [buddy/buddy-hashers "1.4.0"]
+                 [environ "1.2.0"]]
   :main ^:skip-aot core-api.core
   :target-path "target/%s"
   :profiles {:uberjar {:aot :all

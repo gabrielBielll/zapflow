@@ -15,14 +15,12 @@
             [core-api.handlers.channels]
             [core-api.handlers.webhooks]
             [reitit.ring.middleware.multipart :as multipart]
-            [ring.util.response])
+            [ring.util.response]
+            [environ.core :refer [env]])
   (:import [org.postgresql Driver]))
 
-(defn env [k default-value]
-  (get (System/getenv) k default-value))
-
 ;; Simple database spec like SMS Notifier
-(def db-spec (env "DATABASE_URL"))
+(def db-spec (env :database-url))
 
 (defn create-datasource []
   (try
@@ -44,8 +42,8 @@
       (.printStackTrace e)
       (throw e))))
 
-(def ai-service-url (env "AI_SERVICE_URL" "http://localhost:4000"))
-(def gateway-url (env "GATEWAY_URL" "http://localhost:5001"))
+(def ai-service-url (env :ai-service-url "http://localhost:4000"))
+(def gateway-url (env :gateway-url "http://localhost:5001"))
 
 (defn health-check-handler [request]
   (let [datasource (create-datasource)
@@ -136,7 +134,7 @@
       (core-api.db.core/migrate datasource)
       (println "Database migrations completed!")
       
-      (let [port (Integer/parseInt (env "PORT" "8080"))
+      (let [port (Integer/parseInt (env :port "8080"))
             app (create-app datasource)]
         (println (str "Starting server on port " port "..."))
         (jetty/run-jetty app {:port port})))
