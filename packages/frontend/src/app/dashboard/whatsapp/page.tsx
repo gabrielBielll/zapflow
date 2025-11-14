@@ -16,7 +16,8 @@ export default function WhatsAppPage() {
 
   const fetchAssistants = async () => {
     try {
-      const response = await fetch('http://localhost:8082/api/v1/frontend/assistants/');
+      const CORE_API_URL = process.env.NEXT_PUBLIC_CORE_API_URL || 'http://localhost:8080';
+      const response = await fetch(`${CORE_API_URL}/api/v1/frontend/assistants/`);
       if (response.ok) {
         const data = await response.json();
         setAssistants(data);

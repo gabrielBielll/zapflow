@@ -34,7 +34,8 @@ export default function CreateChatbotPage() {
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
-      const response = await fetch('http://localhost:3000/api/assistants', {
+      const CORE_API_URL = process.env.NEXT_PUBLIC_CORE_API_URL || 'http://localhost:8080';
+      const response = await fetch(`${CORE_API_URL}/api/v1/frontend/assistants`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
