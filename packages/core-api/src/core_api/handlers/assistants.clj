@@ -19,7 +19,10 @@
   (println "Request params:" (:params request))
   (println "Request body type:" (type (:body request)))
   (try
-    (let [datasource (-> request :reitit.core/router :data :datasource)
+    (let [_ (println "Request keys:" (keys request))
+          _ (println "Reitit router:" (:reitit.core/router request))
+          _ (println "Router data:" (when (:reitit.core/router request) (-> request :reitit.core/router :data)))
+          datasource (-> request :reitit.core/router :data :datasource)
           _ (println "Datasource obtained:" (not (nil? datasource)))
           _ (println "Datasource type:" (type datasource))
           body-str (if (:body request) (slurp (:body request)) "{}")
