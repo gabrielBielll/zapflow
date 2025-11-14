@@ -92,7 +92,10 @@
          ["/webhook"
           ["/whatsapp/message" {:post core-api.handlers.webhooks/whatsapp-message-webhook-handler}]
           ["/whatsapp/status" {:post core-api.handlers.channels/whatsapp-status-webhook-handler}]]]
-        {:data {:datasource datasource}}))
+        {:data {:datasource datasource}})
+       (ring/routes
+        (ring/create-default-handler
+         {:not-found (constantly {:status 404 :body "Not found"})})))
       (cors/wrap-cors :access-control-allow-origin [#"http://localhost:3000" 
                                                      #"http://localhost:9002"
                                                      #"https://.*\.onrender\.com"
