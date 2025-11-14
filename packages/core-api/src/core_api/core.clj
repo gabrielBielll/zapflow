@@ -32,7 +32,12 @@
       (do
         (println (str "Database URL: " (clojure.string/replace db-spec #":[^:@]+@" ":***@")))
         (println "Creating datasource using simple approach...")
-        (jdbc/get-datasource db-spec))
+        ;; Ensure the URL starts with jdbc: prefix for next.jdbc
+        (let [jdbc-url (if (.startsWith db-spec "jdbc:")
+                         db-spec
+                         (str "jdbc:" db-spec))]
+          (println (str "Final JDBC URL: " (clojure.string/replace jdbc-url #":[^:@]+@" ":***@")))
+          (jdbc/get-datasource jdbc-url)))
       (do
         (println "DATABASE_URL not found, using default local connection...")
         (jdbc/get-datasource "jdbc:postgresql://zapflow:zapflow123@localhost:5432/zapflow")))
