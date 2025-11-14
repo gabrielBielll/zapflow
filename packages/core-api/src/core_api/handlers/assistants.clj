@@ -2,7 +2,8 @@
   (:require [core-api.db.core :as db]
             [cheshire.core :as json]
             [cheshire.generate :as cheshire-gen]
-            [ring.util.response :as response])
+            [ring.util.response :as response]
+            [next.jdbc :as jdbc])
   (:import [java.time OffsetDateTime]))
 
 (cheshire-gen/add-encoder OffsetDateTime
@@ -22,9 +23,19 @@
     (let [_ (println "Request keys:" (keys request))
           _ (println "Reitit router:" (:reitit.core/router request))
           _ (println "Router data:" (when (:reitit.core/router request) (-> request :reitit.core/router :data)))
-          datasource (-> request :reitit.core/router :data :datasource)
-          _ (println "Datasource obtained:" (not (nil? datasource)))
-          _ (println "Datasource type:" (type datasource))
+          router-datasource (-> request :reitit.core/router :data :datasource)
+          _ (println "Router datasource obtained:" (not (nil? router-datasource)))
+          _ (println "Router datasource type:" (type router-datasource))
+          ;; Temporary fix: create datasource directly if router datasource is nil
+          datasource (if router-datasource 
+                       router-datasource 
+                       (do 
+                         (println "Creating datasource directly as fallback...")
+                         (let [db-url (or (System/getenv "DATABASE_URL") 
+                                         "jdbc:postgresql://zapflow:zapflow123@localhost:5432/zapflow")]
+                           (next.jdbc/get-datasource db-url))))
+          _ (println "Final datasource obtained:" (not (nil? datasource)))
+          _ (println "Final datasource type:" (type datasource))
           body-str (if (:body request) (slurp (:body request)) "{}")
           _ (println "Raw body string:" body-str)
           body (json/parse-string body-str true)
