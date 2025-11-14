@@ -12,21 +12,45 @@
 (defn create-assistant-handler
   "Handler to create a new assistant."
   [request]
-  (let [datasource (-> request :reitit.core/router :data :datasource)
-        body (-> request :body slurp (json/parse-string true))
-        new-assistant (db/create-assistant datasource body)]
-    {:status 201
-     :headers {"Content-Type" "application/json"}
-     :body (json/generate-string new-assistant)}))
+  (println "=== CREATE ASSISTANT REQUEST ===")
+  (println "Request method:" (:request-method request))
+  (println "Request URI:" (:uri request))
+  (println "Request headers:" (:headers request))
+  (try
+    (let [datasource (-> request :reitit.core/router :data :datasource)
+          body (-> request :body slurp (json/parse-string true))
+          _ (println "Request body:" body)
+          new-assistant (db/create-assistant datasource body)
+          _ (println "Created assistant:" new-assistant)]
+      {:status 201
+       :headers {"Content-Type" "application/json"}
+       :body (json/generate-string new-assistant)})
+    (catch Exception e
+      (println "Error creating assistant:" (.getMessage e))
+      (println "Stack trace:" (str e))
+      {:status 500
+       :headers {"Content-Type" "application/json"}
+       :body (json/generate-string {:error "Failed to create assistant" :message (.getMessage e)})})))
 
 (defn list-assistants-handler
   "Handler to list all assistants."
   [request]
-  (let [datasource (-> request :reitit.core/router :data :datasource)
-        assistants (db/list-assistants datasource)]
-    {:status 200
-     :headers {"Content-Type" "application/json"}
-     :body (json/generate-string assistants)}))
+  (println "=== LIST ASSISTANTS REQUEST ===")
+  (println "Request method:" (:request-method request))
+  (println "Request URI:" (:uri request))
+  (try
+    (let [datasource (-> request :reitit.core/router :data :datasource)
+          assistants (db/list-assistants datasource)
+          _ (println "Found assistants count:" (count assistants))]
+      {:status 200
+       :headers {"Content-Type" "application/json"}
+       :body (json/generate-string assistants)})
+    (catch Exception e
+      (println "Error listing assistants:" (.getMessage e))
+      (println "Stack trace:" (str e))
+      {:status 500
+       :headers {"Content-Type" "application/json"}
+       :body (json/generate-string {:error "Failed to list assistants" :message (.getMessage e)})})))
 
 (defn update-assistant-settings-handler
   "Handler for updating assistant settings."

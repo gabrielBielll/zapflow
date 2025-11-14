@@ -48,6 +48,17 @@
      :headers {"Content-Type" "application/json"}
      :body (str now)}))
 
+(defn request-logger [handler]
+  (fn [request]
+    (println "=== INCOMING REQUEST ===")
+    (println "Method:" (:request-method request))
+    (println "URI:" (:uri request))
+    (println "Query string:" (:query-string request))
+    (println "Headers:" (select-keys (:headers request) ["content-type" "user-agent" "origin"]))
+    (let [response (handler request)]
+      (println "Response status:" (:status response))
+      response)))
+
 (defn create-app [datasource]
   (-> (ring/ring-handler
        (ring/router
@@ -67,6 +78,7 @@
           ["/whatsapp/message" {:post core-api.handlers.webhooks/whatsapp-message-webhook-handler}]
           ["/whatsapp/status" {:post core-api.handlers.channels/whatsapp-status-webhook-handler}]]]
         {:data {:datasource datasource}}))
+      request-logger
       params/wrap-params))
 
 (defn -main
