@@ -85,21 +85,24 @@
   (fn [request]
     (handler (assoc request :datasource datasource))))
 
+(defn create-routes []
+  ["/api/v1"
+   ["/frontend"
+    ["/users" {:get core-api.handlers.users/list-users-handler
+               :post core-api.handlers.users/create-user-handler}]
+    ["/assistants" {:get core-api.handlers.assistants/list-assistants-handler
+                    :post core-api.handlers.assistants/create-assistant-handler}]
+    ["/assistants/:id/settings" {:put core-api.handlers.assistants/update-assistant-settings-handler}]
+    ["/assistants/:id/conversations" {:get core-api.handlers.conversations/list-conversation-history-handler}]
+    ["/assistants/:id/knowledge/upload" {:middleware [multipart/multipart-middleware]
+                                         :post core-api.handlers.rag/upload-document-handler}]
+    ["/assistants/:id/channels/whatsapp" {:post core-api.handlers.channels/init-whatsapp-channel-handler}]]
+   ["/webhook"
+    ["/whatsapp/message" {:post core-api.handlers.webhooks/whatsapp-message-webhook-handler}]
+    ["/whatsapp/status" {:post core-api.handlers.channels/whatsapp-status-webhook-handler}]]])
+
 (defn create-app [datasource]
-  (let [routes ["/api/v1"
-                ["/frontend"
-                 ["/users" {:get core-api.handlers.users/list-users-handler
-                            :post core-api.handlers.users/create-user-handler}]
-                 ["/assistants" {:get core-api.handlers.assistants/list-assistants-handler
-                                 :post core-api.handlers.assistants/create-assistant-handler}]
-                 ["/assistants/:id/settings" {:put core-api.handlers.assistants/update-assistant-settings-handler}]
-                 ["/assistants/:id/conversations" {:get core-api.handlers.conversations/list-conversation-history-handler}]
-                 ["/assistants/:id/knowledge/upload" {:middleware [multipart/multipart-middleware]
-                                                      :post core-api.handlers.rag/upload-document-handler}]
-                 ["/assistants/:id/channels/whatsapp" {:post core-api.handlers.channels/init-whatsapp-channel-handler}]]
-                ["/webhook"
-                 ["/whatsapp/message" {:post core-api.handlers.webhooks/whatsapp-message-webhook-handler}]
-                 ["/whatsapp/status" {:post core-api.handlers.channels/whatsapp-status-webhook-handler}]]]]
+  (let [routes (create-routes)]
     (-> (ring/ring-handler
          (ring/router routes {:data {:datasource datasource}})
          (ring/routes
