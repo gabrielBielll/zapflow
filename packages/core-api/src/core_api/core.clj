@@ -114,7 +114,7 @@
                         :access-control-allow-headers ["Content-Type" "Authorization"]
                         :access-control-allow-credentials true)
         request-logger
-        (partial datasource-middleware datasource))))
+        (datasource-middleware datasource))))
 
 (defn -main
   "Starts the web server and runs migrations."
