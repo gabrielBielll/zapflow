@@ -74,7 +74,6 @@
        (ring/router
         ["/api/v1"
          ["/frontend"
-          {:middleware [multipart/multipart-middleware]}
           ["/users" {:get core-api.handlers.users/list-users-handler
                      :post core-api.handlers.users/create-user-handler}]
           ["/assistants"
@@ -82,7 +81,8 @@
                  :post core-api.handlers.assistants/create-assistant-handler}]
            ["/:id/settings" {:put core-api.handlers.assistants/update-assistant-settings-handler}]
            ["/:id/conversations" {:get core-api.handlers.conversations/list-conversation-history-handler}]
-           ["/:id/knowledge/upload" {:post core-api.handlers.rag/upload-document-handler}]
+           ["/:id/knowledge/upload" {:middleware [multipart/multipart-middleware]
+                                    :post core-api.handlers.rag/upload-document-handler}]
            ["/:id/channels/whatsapp" {:post core-api.handlers.channels/init-whatsapp-channel-handler}]]]
          ["/webhook"
           ["/whatsapp/message" {:post core-api.handlers.webhooks/whatsapp-message-webhook-handler}]
