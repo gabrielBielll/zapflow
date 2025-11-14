@@ -38,8 +38,13 @@
       ;; Try alternative datasource creation for CockroachDB
       (let [datasource (if (.contains db-url "cockroachlabs.cloud")
                          (do
-                           (println "Detected CockroachDB, using alternative connection method...")
-                           (jdbc/get-datasource {:jdbcUrl db-url}))
+                           (println "Detected CockroachDB, converting URL format...")
+                           ;; Convert jdbc:postgresql:// to postgresql:// and add proper SSL settings
+                           (let [cockroach-url (-> db-url
+                                                   (clojure.string/replace #"^jdbc:postgresql://" "postgresql://")
+                                                   (clojure.string/replace #"sslmode=require" "sslmode=verify-full&sslfactory=org.postgresql.ssl.DefaultJavaSSLFactory"))]
+                             (println (str "Converted URL: " (clojure.string/replace cockroach-url #":[^:@]+@" ":***@")))
+                             (jdbc/get-datasource cockroach-url)))
                          (jdbc/get-datasource db-url))]
         (println "Datasource created successfully!")
         datasource))
