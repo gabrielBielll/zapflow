@@ -21,19 +21,21 @@
   (println "Request body type:" (type (:body request)))
   (try
     (let [_ (println "Request keys:" (keys request))
-          _ (println "Reitit router:" (:reitit.core/router request))
-          _ (println "Router data:" (when (:reitit.core/router request) (-> request :reitit.core/router :data)))
+          ;; Try multiple ways to get the datasource
           router-datasource (-> request :reitit.core/router :data :datasource)
+          request-datasource (:datasource request)
           _ (println "Router datasource obtained:" (not (nil? router-datasource)))
+          _ (println "Request datasource obtained:" (not (nil? request-datasource)))
           _ (println "Router datasource type:" (type router-datasource))
-          ;; Temporary fix: create datasource directly if router datasource is nil
-          datasource (if router-datasource 
-                       router-datasource 
-                       (do 
-                         (println "Creating datasource directly as fallback...")
-                         (let [db-url (or (System/getenv "DATABASE_URL") 
-                                         "jdbc:postgresql://zapflow:zapflow123@localhost:5432/zapflow")]
-                           (jdbc/get-datasource db-url))))
+          _ (println "Request datasource type:" (type request-datasource))
+          ;; Use whichever datasource is available, or create one as fallback
+          datasource (or router-datasource 
+                        request-datasource
+                        (do 
+                          (println "Creating datasource directly as fallback...")
+                          (let [db-url (or (System/getenv "DATABASE_URL") 
+                                          "jdbc:postgresql://zapflow:zapflow123@localhost:5432/zapflow")]
+                            (jdbc/get-datasource db-url))))
           _ (println "Final datasource obtained:" (not (nil? datasource)))
           _ (println "Final datasource type:" (type datasource))
           body-str (if (:body request) (slurp (:body request)) "{}")
@@ -63,7 +65,15 @@
   (println "Request method:" (:request-method request))
   (println "Request URI:" (:uri request))
   (try
-    (let [datasource (-> request :reitit.core/router :data :datasource)
+    (let [router-datasource (-> request :reitit.core/router :data :datasource)
+          request-datasource (:datasource request)
+          datasource (or router-datasource 
+                        request-datasource
+                        (do 
+                          (println "Creating datasource directly as fallback...")
+                          (let [db-url (or (System/getenv "DATABASE_URL") 
+                                          "jdbc:postgresql://zapflow:zapflow123@localhost:5432/zapflow")]
+                            (jdbc/get-datasource db-url))))
           assistants (db/list-assistants datasource)
           _ (println "Found assistants count:" (count assistants))]
       {:status 200
@@ -79,7 +89,15 @@
 (defn update-assistant-settings-handler
   "Handler for updating assistant settings."
   [request]
-  (let [datasource (-> request :reitit.core/router :data :datasource)
+  (let [router-datasource (-> request :reitit.core/router :data :datasource)
+        request-datasource (:datasource request)
+        datasource (or router-datasource 
+                      request-datasource
+                      (do 
+                        (println "Creating datasource directly as fallback...")
+                        (let [db-url (or (System/getenv "DATABASE_URL") 
+                                        "jdbc:postgresql://zapflow:zapflow123@localhost:5432/zapflow")]
+                          (jdbc/get-datasource db-url))))
         assistant-id (-> request :params :id)
         body (-> request :body slurp (json/parse-string true))
         settings-data (assoc body :assistant-id (java.util.UUID/fromString assistant-id))

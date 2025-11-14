@@ -3,7 +3,8 @@
             [cheshire.core :as json]
             [ring.util.response :as response]
             [clojure.java.io :as io]
-            [clj-http.client :as client])
+            [clj-http.client :as client]
+            [next.jdbc :as jdbc])
   (:import [java.io File]))
 
 (def ai-service-url (get (System/getenv) "AI_SERVICE_URL" "http://localhost:4000"))
@@ -21,7 +22,13 @@
 (defn upload-document-handler
   "Handler for uploading a document for RAG."
   [request]
-  (let [datasource (-> request :reitit.core/router :data :datasource)
+  (let [router-datasource (-> request :reitit.core/router :data :datasource)
+        request-datasource (:datasource request)
+        datasource (or router-datasource 
+                      request-datasource
+                      (let [db-url (or (System/getenv "DATABASE_URL") 
+                                      "jdbc:postgresql://zapflow:zapflow123@localhost:5432/zapflow")]
+                        (jdbc/get-datasource db-url)))
         {:keys [assistant-id]} (:params request)
         file (-> request :params :file)
         filepath (save-uploaded-file file)

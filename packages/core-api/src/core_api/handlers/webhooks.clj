@@ -1,7 +1,8 @@
 (ns core-api.handlers.webhooks
   (:require [core-api.db.core :as db]
             [cheshire.core :as json]
-            [clj-http.client :as client]))
+            [clj-http.client :as client]
+            [next.jdbc :as jdbc]))
 
 (def ai-service-url (get (System/getenv) "AI_SERVICE_URL" "http://localhost:4000"))
 (def gateway-url (get (System/getenv) "GATEWAY_URL" "http://localhost:5001"))
@@ -9,7 +10,13 @@
 (defn whatsapp-message-webhook-handler
   "Orchestrates the response to an incoming WhatsApp message."
   [request]
-  (let [datasource (-> request :reitit.core/router :data :datasource)
+  (let [router-datasource (-> request :reitit.core/router :data :datasource)
+        request-datasource (:datasource request)
+        datasource (or router-datasource 
+                      request-datasource
+                      (let [db-url (or (System/getenv "DATABASE_URL") 
+                                      "jdbc:postgresql://zapflow:zapflow123@localhost:5432/zapflow")]
+                        (jdbc/get-datasource db-url)))
         incoming-message (-> request :body slurp (json/parse-string true))
         message-text (:body incoming-message)
         sender-number (:from incoming-message)

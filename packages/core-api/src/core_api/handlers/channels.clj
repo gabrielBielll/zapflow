@@ -2,14 +2,21 @@
   (:require [core-api.db.core :as db]
             [cheshire.core :as json]
             [ring.util.response :as response]
-            [clj-http.client :as client]))
+            [clj-http.client :as client]
+            [next.jdbc :as jdbc]))
 
 (def gateway-url (get (System/getenv) "GATEWAY_URL" "http://localhost:5001"))
 
 (defn init-whatsapp-channel-handler
   "Handler to initialize a new WhatsApp channel for an assistant."
   [request]
-  (let [datasource (-> request :reitit.core/router :data :datasource)
+  (let [router-datasource (-> request :reitit.core/router :data :datasource)
+        request-datasource (:datasource request)
+        datasource (or router-datasource 
+                      request-datasource
+                      (let [db-url (or (System/getenv "DATABASE_URL") 
+                                      "jdbc:postgresql://zapflow:zapflow123@localhost:5432/zapflow")]
+                        (jdbc/get-datasource db-url)))
         assistant-id (-> request :params :id)
         channel-data {:assistant_id (java.util.UUID/fromString assistant-id)
                       :channel_type "whatsapp"
@@ -34,7 +41,13 @@
 (defn whatsapp-status-webhook-handler
   "Handler for receiving status updates from the WhatsApp gateway."
   [request]
-  (let [datasource (-> request :reitit.core/router :data :datasource)
+  (let [router-datasource (-> request :reitit.core/router :data :datasource)
+        request-datasource (:datasource request)
+        datasource (or router-datasource 
+                      request-datasource
+                      (let [db-url (or (System/getenv "DATABASE_URL") 
+                                      "jdbc:postgresql://zapflow:zapflow123@localhost:5432/zapflow")]
+                        (jdbc/get-datasource db-url)))
         status-update (-> request :body slurp (json/parse-string true))
         channel-id (-> status-update :channel_id java.util.UUID/fromString)
         status (:status status-update)
