@@ -74,6 +74,10 @@
            :headers {"Content-Type" "application/json"}
            :body (json/generate-string {:error "Internal server error" :message "Handler returned nil response"})})))))
 
+(defn datasource-middleware [handler datasource]
+  (fn [request]
+    (handler (assoc request :datasource datasource))))
+
 (defn create-app [datasource]
   (-> (ring/ring-handler
        (ring/router
@@ -95,6 +99,7 @@
        (ring/routes
         (ring/create-default-handler
          {:not-found (constantly {:status 404 :body "Not found"})})))
+      (partial datasource-middleware datasource)
       request-logger
       (cors/wrap-cors :access-control-allow-origin [#"http://localhost:3000" 
                                                      #"http://localhost:9002"

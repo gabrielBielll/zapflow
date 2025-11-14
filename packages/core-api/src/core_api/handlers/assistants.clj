@@ -21,6 +21,7 @@
   (try
     (let [datasource (-> request :reitit.core/router :data :datasource)
           _ (println "Datasource obtained:" (not (nil? datasource)))
+          _ (println "Datasource type:" (type datasource))
           body-str (if (:body request) (slurp (:body request)) "{}")
           _ (println "Raw body string:" body-str)
           body (json/parse-string body-str true)
