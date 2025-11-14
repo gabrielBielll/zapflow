@@ -21,37 +21,26 @@
 (defn env [k default-value]
   (get (System/getenv) k default-value))
 
+;; Simple database spec like SMS Notifier
+(def db-spec (env "DATABASE_URL"))
+
 (defn create-datasource []
   (try
-    ;; Explicitly load the PostgreSQL driver
     (println "Loading PostgreSQL driver...")
     (Class/forName "org.postgresql.Driver")
     (println "PostgreSQL driver loaded successfully!")
     
-    (let [db-url (env "DATABASE_URL" "jdbc:postgresql://zapflow:zapflow123@localhost:5432/zapflow")
-          masked-url (clojure.string/replace db-url #":[^:@]+@" ":***@")]
-      (println (str "Database URL: " masked-url))
-      (println (str "Raw DATABASE_URL env var exists: " (not (nil? (System/getenv "DATABASE_URL")))))
-      (println (str "Using db-url length: " (count db-url)))
-      (println "Creating datasource...")
-      
-      ;; Try alternative datasource creation for CockroachDB
-      (let [datasource (if (.contains db-url "cockroachlabs.cloud")
-                         (do
-                           (println "Detected CockroachDB, converting URL format...")
-                           ;; Convert jdbc:postgresql:// to postgresql:// and add proper SSL settings
-                           (let [cockroach-url (-> db-url
-                                                   (clojure.string/replace #"^jdbc:postgresql://" "postgresql://")
-                                                   (clojure.string/replace #"sslmode=require" "sslmode=verify-full&sslfactory=org.postgresql.ssl.DefaultJavaSSLFactory"))]
-                             (println (str "Converted URL: " (clojure.string/replace cockroach-url #":[^:@]+@" ":***@")))
-                             (jdbc/get-datasource cockroach-url)))
-                         (jdbc/get-datasource db-url))]
-        (println "Datasource created successfully!")
-        datasource))
+    (if db-spec
+      (do
+        (println (str "Database URL: " (clojure.string/replace db-spec #":[^:@]+@" ":***@")))
+        (println "Creating datasource using simple approach...")
+        (jdbc/get-datasource db-spec))
+      (do
+        (println "DATABASE_URL not found, using default local connection...")
+        (jdbc/get-datasource "jdbc:postgresql://zapflow:zapflow123@localhost:5432/zapflow")))
     (catch Exception e
       (println "Error creating datasource:")
       (println (.getMessage e))
-      (println "Stack trace:")
       (.printStackTrace e)
       (throw e))))
 
