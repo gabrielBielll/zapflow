@@ -31,10 +31,16 @@
     (let [db-url (env "DATABASE_URL" "jdbc:postgresql://zapflow:zapflow123@localhost:5432/zapflow")
           masked-url (clojure.string/replace db-url #":[^:@]+@" ":***@")]
       (println (str "Database URL: " masked-url))
-      (println (str "Raw DATABASE_URL env var: " (System/getenv "DATABASE_URL")))
-      (println (str "Using db-url: " (subs db-url 0 (min 50 (count db-url))) "..."))
+      (println (str "Raw DATABASE_URL env var exists: " (not (nil? (System/getenv "DATABASE_URL")))))
+      (println (str "Using db-url length: " (count db-url)))
       (println "Creating datasource...")
-      (let [datasource (jdbc/get-datasource db-url)]
+      
+      ;; Try alternative datasource creation for CockroachDB
+      (let [datasource (if (.contains db-url "cockroachlabs.cloud")
+                         (do
+                           (println "Detected CockroachDB, using alternative connection method...")
+                           (jdbc/get-datasource {:jdbcUrl db-url}))
+                         (jdbc/get-datasource db-url))]
         (println "Datasource created successfully!")
         datasource))
     (catch Exception e
