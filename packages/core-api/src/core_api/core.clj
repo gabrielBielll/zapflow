@@ -55,9 +55,11 @@
     (println "Method:" (:request-method request))
     (println "URI:" (:uri request))
     (println "Query string:" (:query-string request))
-    (println "Headers:" (select-keys (:headers request) ["content-type" "user-agent" "origin"]))
+    (println "Headers:" (select-keys (:headers request) ["content-type" "user-agent" "origin" "referer"]))
+    (println "Origin header:" (get (:headers request) "origin"))
     (let [response (handler request)]
       (println "Response status:" (:status response))
+      (println "Response headers:" (select-keys (:headers response) ["access-control-allow-origin"]))
       response)))
 
 (defn create-app [datasource]
@@ -79,9 +81,13 @@
           ["/whatsapp/message" {:post core-api.handlers.webhooks/whatsapp-message-webhook-handler}]
           ["/whatsapp/status" {:post core-api.handlers.channels/whatsapp-status-webhook-handler}]]]
         {:data {:datasource datasource}}))
-      (cors/wrap-cors :access-control-allow-origin [#"http://localhost:3000"]
+      (cors/wrap-cors :access-control-allow-origin [#"http://localhost:3000" 
+                                                     #"http://localhost:9002"
+                                                     #"https://.*\.onrender\.com"
+                                                     #"https://.*\.render\.com"]
                       :access-control-allow-methods [:get :put :post :delete :options]
-                      :access-control-allow-headers ["Content-Type" "Authorization"])
+                      :access-control-allow-headers ["Content-Type" "Authorization"]
+                      :access-control-allow-credentials true)
       request-logger
       params/wrap-params))
 
