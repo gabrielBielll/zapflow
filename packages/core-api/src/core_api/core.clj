@@ -113,8 +113,7 @@
                         :access-control-allow-methods [:get :put :post :delete :options]
                         :access-control-allow-headers ["Content-Type" "Authorization"]
                         :access-control-allow-credentials true)
-        request-logger
-        (datasource-middleware datasource))))
+        request-logger))))
 
 (defn -main
   "Starts the web server and runs migrations."
