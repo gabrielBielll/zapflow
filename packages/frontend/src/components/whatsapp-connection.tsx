@@ -26,7 +26,7 @@ export function WhatsAppConnection({ assistantId }: WhatsAppConnectionProps) {
     
     try {
       // First, create WhatsApp channel
-      const CORE_API_URL = process.env.NEXT_PUBLIC_CORE_API_URL || 'http://localhost:8080';
+      const CORE_API_URL = process.env.NEXT_PUBLIC_CORE_API_URL || 'https://zflow-core-api.onrender.com';
       const channelResponse = await fetch(`${CORE_API_URL}/api/v1/frontend/assistants/${assistantId}/channels/whatsapp`, {
         method: 'POST',
         headers: {

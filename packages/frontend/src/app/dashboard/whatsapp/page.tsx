@@ -16,7 +16,7 @@ export default function WhatsAppPage() {
 
   const fetchAssistants = async () => {
     try {
-      const CORE_API_URL = process.env.NEXT_PUBLIC_CORE_API_URL || 'http://localhost:8080';
+      const CORE_API_URL = process.env.NEXT_PUBLIC_CORE_API_URL || 'https://zflow-core-api.onrender.com';
       const response = await fetch(`${CORE_API_URL}/api/v1/frontend/assistants/`);
       if (response.ok) {
         const data = await response.json();

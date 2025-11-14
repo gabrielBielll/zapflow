@@ -1,7 +1,7 @@
 // services/coreApiService.ts
 import axios from 'axios';
 
-const CORE_API_URL = process.env.NEXT_PUBLIC_CORE_API_URL || 'http://localhost:8080';
+const CORE_API_URL = process.env.NEXT_PUBLIC_CORE_API_URL || 'https://zflow-core-api.onrender.com';
 
 export const uploadFile = async (file: File): Promise<any> => {
   const formData = new FormData();

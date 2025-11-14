@@ -34,7 +34,7 @@ export default function CreateChatbotPage() {
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
-      const CORE_API_URL = process.env.NEXT_PUBLIC_CORE_API_URL || 'http://localhost:8080';
+      const CORE_API_URL = process.env.NEXT_PUBLIC_CORE_API_URL || 'https://zflow-core-api.onrender.com';
       console.log('🔍 CORE_API_URL being used:', CORE_API_URL);
       console.log('🔍 Environment variable:', process.env.NEXT_PUBLIC_CORE_API_URL);
       console.log('🔍 Submitting values:', values);
