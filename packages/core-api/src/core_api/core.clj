@@ -4,6 +4,7 @@
             [next.jdbc :as jdbc]
             [reitit.ring :as ring]
             [ring.middleware.params :as params]
+            [ring.middleware.cors :as cors]
             [cheshire.core :as json]
             [clj-http.client :as client]
             [core-api.db.core]
@@ -78,6 +79,9 @@
           ["/whatsapp/message" {:post core-api.handlers.webhooks/whatsapp-message-webhook-handler}]
           ["/whatsapp/status" {:post core-api.handlers.channels/whatsapp-status-webhook-handler}]]]
         {:data {:datasource datasource}}))
+      (cors/wrap-cors :access-control-allow-origin [#"http://localhost:3000"]
+                      :access-control-allow-methods [:get :put :post :delete :options]
+                      :access-control-allow-headers ["Content-Type" "Authorization"])
       request-logger
       params/wrap-params))
 

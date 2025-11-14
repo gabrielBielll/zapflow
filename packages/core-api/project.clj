@@ -6,6 +6,7 @@
   :dependencies [[org.clojure/clojure "1.12.2"]
                  [ring/ring-core "1.12.0"]
                  [ring/ring-jetty-adapter "1.12.0"]
+                 [ring-cors "0.1.13"]
                  [com.github.seancorfield/next.jdbc "1.3.834"]
                  [org.postgresql/postgresql "42.7.3"]
                  [metosin/reitit "0.9.2"]
