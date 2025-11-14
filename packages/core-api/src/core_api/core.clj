@@ -81,14 +81,13 @@
          ["/frontend"
           ["/users" {:get core-api.handlers.users/list-users-handler
                      :post core-api.handlers.users/create-user-handler}]
-          ["/assistants"
-           ["/" {:get core-api.handlers.assistants/list-assistants-handler
-                 :post core-api.handlers.assistants/create-assistant-handler}]
-           ["/:id/settings" {:put core-api.handlers.assistants/update-assistant-settings-handler}]
-           ["/:id/conversations" {:get core-api.handlers.conversations/list-conversation-history-handler}]
-           ["/:id/knowledge/upload" {:middleware [multipart/multipart-middleware]
-                                    :post core-api.handlers.rag/upload-document-handler}]
-           ["/:id/channels/whatsapp" {:post core-api.handlers.channels/init-whatsapp-channel-handler}]]]
+          ["/assistants" {:get core-api.handlers.assistants/list-assistants-handler
+                          :post core-api.handlers.assistants/create-assistant-handler}]
+          ["/assistants/:id/settings" {:put core-api.handlers.assistants/update-assistant-settings-handler}]
+          ["/assistants/:id/conversations" {:get core-api.handlers.conversations/list-conversation-history-handler}]
+          ["/assistants/:id/knowledge/upload" {:middleware [multipart/multipart-middleware]
+                                               :post core-api.handlers.rag/upload-document-handler}]
+          ["/assistants/:id/channels/whatsapp" {:post core-api.handlers.channels/init-whatsapp-channel-handler}]]
          ["/webhook"
           ["/whatsapp/message" {:post core-api.handlers.webhooks/whatsapp-message-webhook-handler}]
           ["/whatsapp/status" {:post core-api.handlers.channels/whatsapp-status-webhook-handler}]]]
