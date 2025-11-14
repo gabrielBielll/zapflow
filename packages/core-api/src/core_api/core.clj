@@ -31,11 +31,17 @@
     (let [db-url (env "DATABASE_URL" "jdbc:postgresql://zapflow:zapflow123@localhost:5432/zapflow")
           masked-url (clojure.string/replace db-url #":[^:@]+@" ":***@")]
       (println (str "Database URL: " masked-url))
+      (println (str "Raw DATABASE_URL env var: " (System/getenv "DATABASE_URL")))
+      (println (str "Using db-url: " (subs db-url 0 (min 50 (count db-url))) "..."))
       (println "Creating datasource...")
-      (jdbc/get-datasource db-url))
+      (let [datasource (jdbc/get-datasource db-url)]
+        (println "Datasource created successfully!")
+        datasource))
     (catch Exception e
       (println "Error creating datasource:")
       (println (.getMessage e))
+      (println "Stack trace:")
+      (.printStackTrace e)
       (throw e))))
 
 (def ai-service-url (env "AI_SERVICE_URL" "http://localhost:4000"))
