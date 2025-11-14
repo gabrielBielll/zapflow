@@ -95,6 +95,7 @@
        (ring/routes
         (ring/create-default-handler
          {:not-found (constantly {:status 404 :body "Not found"})})))
+      request-logger
       (cors/wrap-cors :access-control-allow-origin [#"http://localhost:3000" 
                                                      #"http://localhost:9002"
                                                      #"https://.*\.onrender\.com"
@@ -102,7 +103,6 @@
                       :access-control-allow-methods [:get :put :post :delete :options]
                       :access-control-allow-headers ["Content-Type" "Authorization"]
                       :access-control-allow-credentials true)
-      request-logger
       params/wrap-params))
 
 (defn -main
