@@ -33,7 +33,7 @@
                          (println "Creating datasource directly as fallback...")
                          (let [db-url (or (System/getenv "DATABASE_URL") 
                                          "jdbc:postgresql://zapflow:zapflow123@localhost:5432/zapflow")]
-                           (next.jdbc/get-datasource db-url))))
+                           (jdbc/get-datasource db-url))))
           _ (println "Final datasource obtained:" (not (nil? datasource)))
           _ (println "Final datasource type:" (type datasource))
           body-str (if (:body request) (slurp (:body request)) "{}")
