@@ -16,21 +16,30 @@
   (println "Request method:" (:request-method request))
   (println "Request URI:" (:uri request))
   (println "Request headers:" (:headers request))
+  (println "Request params:" (:params request))
+  (println "Request body type:" (type (:body request)))
   (try
     (let [datasource (-> request :reitit.core/router :data :datasource)
-          body (-> request :body slurp (json/parse-string true))
-          _ (println "Request body:" body)
+          _ (println "Datasource obtained:" (not (nil? datasource)))
+          body-str (if (:body request) (slurp (:body request)) "{}")
+          _ (println "Raw body string:" body-str)
+          body (json/parse-string body-str true)
+          _ (println "Parsed body:" body)
           new-assistant (db/create-assistant datasource body)
           _ (println "Created assistant:" new-assistant)]
-      {:status 201
-       :headers {"Content-Type" "application/json"}
-       :body (json/generate-string new-assistant)})
+      (let [response {:status 201
+                      :headers {"Content-Type" "application/json"}
+                      :body (json/generate-string new-assistant)}]
+        (println "Returning response:" response)
+        response))
     (catch Exception e
       (println "Error creating assistant:" (.getMessage e))
       (println "Stack trace:" (str e))
-      {:status 500
-       :headers {"Content-Type" "application/json"}
-       :body (json/generate-string {:error "Failed to create assistant" :message (.getMessage e)})})))
+      (let [error-response {:status 500
+                           :headers {"Content-Type" "application/json"}
+                           :body (json/generate-string {:error "Failed to create assistant" :message (.getMessage e)})}]
+        (println "Returning error response:" error-response)
+        error-response))))
 
 (defn list-assistants-handler
   "Handler to list all assistants."
