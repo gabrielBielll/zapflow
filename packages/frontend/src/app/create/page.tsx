@@ -37,7 +37,12 @@ export default function CreateChatbotPage() {
       const CORE_API_URL = process.env.NEXT_PUBLIC_CORE_API_URL || 'http://localhost:8080';
       console.log('🔍 CORE_API_URL being used:', CORE_API_URL);
       console.log('🔍 Environment variable:', process.env.NEXT_PUBLIC_CORE_API_URL);
-      const response = await fetch(`${CORE_API_URL}/api/v1/frontend/assistants`, {
+      console.log('🔍 Submitting values:', values);
+      
+      const url = `${CORE_API_URL}/api/v1/frontend/assistants`;
+      console.log('🔍 Full URL:', url);
+      
+      const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -45,9 +50,17 @@ export default function CreateChatbotPage() {
         body: JSON.stringify(values),
       });
 
+      console.log('🔍 Response status:', response.status);
+      console.log('🔍 Response headers:', response.headers);
+
       if (!response.ok) {
-        throw new Error('Failed to create chatbot');
+        const errorText = await response.text();
+        console.error('🔍 Response error text:', errorText);
+        throw new Error(`Failed to create chatbot: ${response.status} - ${errorText}`);
       }
+
+      const result = await response.json();
+      console.log('🔍 Success response:', result);
 
       // Optionally, you can still use the context if other parts of the app need it instantly
       setName(values.name);
@@ -57,6 +70,7 @@ export default function CreateChatbotPage() {
     } catch (error) {
       console.error('Error creating chatbot:', error);
       // Here you could add some user-facing error handling, like a toast message
+      alert(`Erro ao criar chatbot: ${error.message}`);
     }
   }
 
