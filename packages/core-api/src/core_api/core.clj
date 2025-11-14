@@ -1,7 +1,8 @@
 (ns core-api.core
   (:gen-class)
   (:require [ring.adapter.jetty :as jetty]
-            [next.jdbc :as jdbc]
+            [clojure.java.jdbc :as jdbc]
+            [next.jdbc :as next-jdbc]
             [reitit.ring :as ring]
             [ring.middleware.params :as params]
             [ring.middleware.cors :as cors]
@@ -19,43 +20,35 @@
             [environ.core :refer [env]])
   (:import [org.postgresql Driver]))
 
-;; Simple database spec like SMS Notifier
+;; Simple database spec like SMS Notifier - use the URL directly
 (def db-spec (env :database-url))
 
-(defn create-datasource []
-  (try
-    (println "Loading PostgreSQL driver...")
-    (Class/forName "org.postgresql.Driver")
-    (println "PostgreSQL driver loaded successfully!")
-    
-    (if db-spec
-      (do
-        (println (str "Database URL: " (clojure.string/replace db-spec #":[^:@]+@" ":***@")))
-        (println "Creating datasource using simple approach...")
-        ;; Ensure the URL starts with jdbc: prefix for next.jdbc
-        (let [jdbc-url (if (.startsWith db-spec "jdbc:")
-                         db-spec
-                         (str "jdbc:" db-spec))]
-          (println (str "Final JDBC URL: " (clojure.string/replace jdbc-url #":[^:@]+@" ":***@")))
-          (jdbc/get-datasource jdbc-url)))
-      (do
-        (println "DATABASE_URL not found, using default local connection...")
-        (jdbc/get-datasource "jdbc:postgresql://zapflow:zapflow123@localhost:5432/zapflow")))
-    (catch Exception e
-      (println "Error creating datasource:")
-      (println (.getMessage e))
-      (.printStackTrace e)
-      (throw e))))
+;; Test database connection like SMS Notifier
+(defn test-db-connection []
+  (if-not db-spec
+    (println "ALERTA: DATABASE_URL não configurada.")
+    (try
+      (println "Testando conexão com o banco de dados...")
+      (let [result (jdbc/query db-spec ["SELECT 1 as test"])]
+        (println "Conexão com banco de dados bem-sucedida!")
+        result)
+      (catch Exception e
+        (println (str "ERRO ao conectar com o banco: " (.getMessage e)))
+        (throw e)))))
 
 (def ai-service-url (env :ai-service-url "http://localhost:4000"))
 (def gateway-url (env :gateway-url "http://localhost:5001"))
 
 (defn health-check-handler [request]
-  (let [datasource (create-datasource)
-        now (jdbc/execute! datasource ["SELECT NOW()"])]
-    {:status 200
-     :headers {"Content-Type" "application/json"}
-     :body (str now)}))
+  (try
+    (let [result (jdbc/query db-spec ["SELECT NOW() as current_time"])]
+      {:status 200
+       :headers {"Content-Type" "application/json"}
+       :body (json/generate-string {:status "healthy" :timestamp (first result)})})
+    (catch Exception e
+      {:status 500
+       :headers {"Content-Type" "application/json"}
+       :body (json/generate-string {:status "error" :message (.getMessage e)})})))
 
 (defn request-logger [handler]
   (fn [request]
@@ -89,9 +82,9 @@
          :headers {"Content-Type" "application/json"}
          :body (json/generate-string {:error "Internal server error" :message (.getMessage e)})}))))
 
-(defn datasource-middleware [handler datasource]
+(defn db-middleware [handler]
   (fn [request]
-    (handler (assoc request :datasource datasource))))
+    (handler (assoc request :db-spec db-spec))))
 
 (defn create-routes []
   ["/api/v1"
@@ -109,10 +102,10 @@
     ["/whatsapp/message" {:post core-api.handlers.webhooks/whatsapp-message-webhook-handler}]
     ["/whatsapp/status" {:post core-api.handlers.channels/whatsapp-status-webhook-handler}]]])
 
-(defn create-app [datasource]
+(defn create-app []
   (let [routes (create-routes)]
     (-> (ring/ring-handler
-         (ring/router routes {:data {:datasource datasource}})
+         (ring/router routes {:data {:db-spec db-spec}})
          (ring/routes
           (ring/create-default-handler
            {:not-found (constantly {:status 404 :body "Not found"})})))
@@ -124,27 +117,32 @@
                         :access-control-allow-methods [:get :put :post :delete :options]
                         :access-control-allow-headers ["Content-Type" "Authorization"]
                         :access-control-allow-credentials true)
+        db-middleware
         request-logger)))
 
 (defn -main
   "Starts the web server and runs migrations."
   [& args]
   (try
-    (println "Connecting to database...")
-    (let [datasource (create-datasource)]
-      (jdbc/execute! datasource ["SELECT 1"])
-      (println "Database connection successful!")
-      
-      (println "Running database migrations...")
-      (core-api.db.core/migrate datasource)
-      (println "Database migrations completed!")
-      
-      (let [port (Integer/parseInt (env :port "8080"))
-            app (create-app datasource)]
-        (println (str "Starting server on port " port "..."))
-        (jetty/run-jetty app {:port port})))
+    (println "====================================")
+    (println "  Core API v0.1.0")
+    (println "====================================")
+    
+    (println "Testando conexão com o banco de dados...")
+    (test-db-connection)
+    (println "Conexão com banco de dados bem-sucedida!")
+    
+    (println "Executando migrações do banco de dados...")
+    (core-api.db.core/migrate-with-jdbc db-spec)
+    (println "Migrações do banco de dados concluídas!")
+    
+    (let [port (Integer/parseInt (env :port "8080"))
+          app (create-app)]
+      (println (str "Iniciando servidor na porta " port "..."))
+      (jetty/run-jetty app {:port port}))
     
     (catch Exception e
-      (println "Error starting application:")
+      (println "Erro ao iniciar aplicação:")
       (println (.getMessage e))
+      (.printStackTrace e)
       (System/exit 1))))

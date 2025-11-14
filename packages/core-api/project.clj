@@ -7,6 +7,7 @@
                  [ring/ring-core "1.12.0"]
                  [ring/ring-jetty-adapter "1.12.0"]
                  [ring-cors "0.1.13"]
+                 [org.clojure/java.jdbc "0.7.12"]
                  [com.github.seancorfield/next.jdbc "1.3.834"]
                  [org.postgresql/postgresql "42.7.3"]
                  [metosin/reitit "0.9.2"]

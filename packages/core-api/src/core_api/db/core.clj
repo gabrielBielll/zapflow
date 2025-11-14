@@ -1,8 +1,5 @@
 (ns core-api.db.core
-  (:require [next.jdbc :as jdbc]
-            [next.jdbc.sql :as sql]
-            [next.jdbc.result-set :as rs]
-            [camel-snake-kebab.core :as csk]
+  (:require [clojure.java.jdbc :as jdbc]
             [buddy.hashers :as hashers]))
 
 (def create-users-table-sql
@@ -87,122 +84,124 @@
      PRIMARY KEY (id)
    )")
 
-(defn migrate
-  "Applies database migrations."
-  [datasource]
-  (jdbc/execute! datasource [create-users-table-sql])
-  (jdbc/execute! datasource [create-documents-table-sql])
-  (jdbc/execute! datasource [create-assistants-table-sql])
-  (jdbc/execute! datasource [create-assistant-settings-table-sql])
-  (jdbc/execute! datasource [create-conversation-history-table-sql])
-  (jdbc/execute! datasource [create-assistant-phone-numbers-table-sql])
-  (jdbc/execute! datasource [create-channels-table-sql]))
+(defn migrate-with-jdbc
+  "Applies database migrations using clojure.java.jdbc like SMS Notifier."
+  [db-spec]
+  (jdbc/execute! db-spec [create-users-table-sql])
+  (jdbc/execute! db-spec [create-documents-table-sql])
+  (jdbc/execute! db-spec [create-assistants-table-sql])
+  (jdbc/execute! db-spec [create-assistant-settings-table-sql])
+  (jdbc/execute! db-spec [create-conversation-history-table-sql])
+  (jdbc/execute! db-spec [create-assistant-phone-numbers-table-sql])
+  (jdbc/execute! db-spec [create-channels-table-sql]))
 
-(def unqualified-kebab-opts
-  {:builder-fn rs/as-unqualified-kebab-maps})
+(defn migrate
+  "Applies database migrations (legacy function for compatibility)."
+  [datasource]
+  (migrate-with-jdbc datasource))
 
 (defn create-assistant
   "Creates a new assistant and returns it."
-  [datasource {:keys [name purpose]}]
+  [db-spec {:keys [name purpose]}]
   (let [id (java.util.UUID/randomUUID)]
-    (sql/insert! datasource :assistants {:id id :name name :purpose purpose} unqualified-kebab-opts)
-    (first (sql/query datasource ["SELECT * FROM assistants WHERE id = ?" id] unqualified-kebab-opts))))
+    (jdbc/insert! db-spec :assistants {:id id :name name :purpose purpose})
+    (first (jdbc/query db-spec ["SELECT * FROM assistants WHERE id = ?" id]))))
 
 (defn list-assistants
   "Lists all assistants from the database."
-  [datasource]
-  (sql/query datasource ["SELECT * FROM assistants ORDER BY created_at DESC"] unqualified-kebab-opts))
+  [db-spec]
+  (jdbc/query db-spec ["SELECT * FROM assistants ORDER BY created_at DESC"]))
 
 (defn create-user
   "Creates a new user and returns it."
-  [datasource {:keys [name email password]}]
+  [db-spec {:keys [name email password]}]
   (let [id (java.util.UUID/randomUUID)
         password-hash (hashers/encrypt password)]
-    (sql/insert! datasource :users {:id id :name name :email email :password_hash password-hash} unqualified-kebab-opts)
-    (first (sql/query datasource ["SELECT id, name, email, created_at, updated_at FROM users WHERE id = ?" id] unqualified-kebab-opts))))
+    (jdbc/insert! db-spec :users {:id id :name name :email email :password_hash password-hash})
+    (first (jdbc/query db-spec ["SELECT id, name, email, created_at, updated_at FROM users WHERE id = ?" id]))))
 
 (defn list-users
   "Lists all users from the database."
-  [datasource]
-  (sql/query datasource ["SELECT id, name, email, created_at, updated_at FROM users ORDER BY created_at DESC"] unqualified-kebab-opts))
+  [db-spec]
+  (jdbc/query db-spec ["SELECT id, name, email, created_at, updated_at FROM users ORDER BY created_at DESC"]))
 
 (defn create-document
   "Creates a new document and returns it."
-  [datasource {:keys [assistant-id filename filepath]}]
+  [db-spec {:keys [assistant-id filename filepath]}]
   (let [id (java.util.UUID/randomUUID)]
-    (sql/insert! datasource :documents {:id id
+    (jdbc/insert! db-spec :documents {:id id
                                      :assistant_id assistant-id
                                      :filename filename
-                                     :filepath filepath} unqualified-kebab-opts)
-    (first (sql/query datasource ["SELECT * FROM documents WHERE id = ?" id] unqualified-kebab-opts))))
+                                     :filepath filepath})
+    (first (jdbc/query db-spec ["SELECT * FROM documents WHERE id = ?" id]))))
 
 (defn update-assistant-settings
   "Updates an assistant's settings and returns them."
-  [datasource {:keys [assistant-id personality rag-enabled]}]
-  (let [existing-settings (first (sql/query datasource ["SELECT * FROM assistant_settings WHERE assistant_id = ?" assistant-id] unqualified-kebab-opts))]
+  [db-spec {:keys [assistant-id personality rag-enabled]}]
+  (let [existing-settings (first (jdbc/query db-spec ["SELECT * FROM assistant_settings WHERE assistant_id = ?" assistant-id]))]
     (if existing-settings
-      (sql/update! datasource :assistant_settings {:personality personality :rag_enabled rag-enabled} {:id (:id existing-settings)} unqualified-kebab-opts)
+      (jdbc/update! db-spec :assistant_settings {:personality personality :rag_enabled rag-enabled} ["id = ?" (:id existing-settings)])
       (let [id (java.util.UUID/randomUUID)]
-        (sql/insert! datasource :assistant_settings {:id id
+        (jdbc/insert! db-spec :assistant_settings {:id id
                                                    :assistant_id assistant-id
                                                    :personality personality
-                                                   :rag_enabled rag-enabled} unqualified-kebab-opts)))
-    (first (sql/query datasource ["SELECT * FROM assistant_settings WHERE assistant_id = ?" assistant-id] unqualified-kebab-opts))))
+                                                   :rag_enabled rag-enabled})))
+    (first (jdbc/query db-spec ["SELECT * FROM assistant_settings WHERE assistant_id = ?" assistant-id]))))
 
 (defn list-conversation-history
   "Lists conversation history for an assistant."
-  [datasource {:keys [assistant-id]}]
-  (sql/query datasource ["SELECT * FROM conversation_history WHERE assistant_id = ? ORDER BY created_at DESC" assistant-id] unqualified-kebab-opts))
+  [db-spec {:keys [assistant-id]}]
+  (jdbc/query db-spec ["SELECT * FROM conversation_history WHERE assistant_id = ? ORDER BY created_at DESC" assistant-id]))
 
 (defn create-conversation-history
   "Creates a new conversation history record and returns it."
-  [datasource {:keys [assistant-id sender message response]}]
+  [db-spec {:keys [assistant-id sender message response]}]
   (let [id (java.util.UUID/randomUUID)]
-    (sql/insert! datasource :conversation_history {:id id
-                                                  :assistant_id assistant-id
-                                                  :sender sender
-                                                  :message message
-                                                  :response response} unqualified-kebab-opts)
-    (first (sql/query datasource ["SELECT * FROM conversation_history WHERE id = ?" id] unqualified-kebab-opts))))
+    (jdbc/insert! db-spec :conversation_history {:id id
+                                                :assistant_id assistant-id
+                                                :sender sender
+                                                :message message
+                                                :response response})
+    (first (jdbc/query db-spec ["SELECT * FROM conversation_history WHERE id = ?" id]))))
 
 (defn find-assistant-by-phone-number
   "Finds an assistant by phone number."
-  [datasource phone-number]
-  (first (sql/query datasource ["SELECT assistant_id FROM assistant_phone_numbers WHERE phone_number = ?" phone-number] unqualified-kebab-opts)))
+  [db-spec phone-number]
+  (first (jdbc/query db-spec ["SELECT assistant_id FROM assistant_phone_numbers WHERE phone_number = ?" phone-number])))
 
 (defn create-channel
   "Creates a new channel for an assistant."
-  [datasource {:keys [assistant_id channel_type status]}]
+  [db-spec {:keys [assistant_id channel_type status]}]
   (let [id (java.util.UUID/randomUUID)]
-    (sql/insert! datasource :channels {:id id
+    (jdbc/insert! db-spec :channels {:id id
                                     :assistant_id assistant_id
                                     :channel_type channel_type
-                                    :status status} unqualified-kebab-opts)
-    (first (sql/query datasource ["SELECT * FROM channels WHERE id = ?" id] unqualified-kebab-opts))))
+                                    :status status})
+    (first (jdbc/query db-spec ["SELECT * FROM channels WHERE id = ?" id]))))
 
 (defn update-channel-status
   "Updates the status of a channel."
-  [datasource {:keys [id status]}]
-  (sql/update! datasource :channels {:status status} {:id id} unqualified-kebab-opts)
-  (first (sql/query datasource ["SELECT * FROM channels WHERE id = ?" id] unqualified-kebab-opts)))
+  [db-spec {:keys [id status]}]
+  (jdbc/update! db-spec :channels {:status status} ["id = ?" id])
+  (first (jdbc/query db-spec ["SELECT * FROM channels WHERE id = ?" id])))
 
 (defn update-latest-conversation-history
   "Updates the latest conversation history record with the assistant's response."
-  [datasource {:keys [assistant-id sender response]}]
-  (let [latest-id (:id (first (sql/query datasource ["SELECT id FROM conversation_history WHERE assistant_id = ? AND sender = ? ORDER BY created_at DESC LIMIT 1" assistant-id sender] unqualified-kebab-opts)))]
+  [db-spec {:keys [assistant-id sender response]}]
+  (let [latest-id (:id (first (jdbc/query db-spec ["SELECT id FROM conversation_history WHERE assistant_id = ? AND sender = ? ORDER BY created_at DESC LIMIT 1" assistant-id sender])))]
     (when latest-id
-      (sql/update! datasource :conversation_history {:response response} {:id latest-id} unqualified-kebab-opts))))
+      (jdbc/update! db-spec :conversation_history {:response response} ["id = ?" latest-id]))))
 
 (defn create-assistant-phone-number
   "Creates a new assistant phone number association."
-  [datasource {:keys [assistant_id phone_number]}]
+  [db-spec {:keys [assistant_id phone_number]}]
   (let [id (java.util.UUID/randomUUID)]
-    (sql/insert! datasource :assistant_phone_numbers {:id id
+    (jdbc/insert! db-spec :assistant_phone_numbers {:id id
                                                     :assistant_id assistant_id
-                                                    :phone_number phone_number} unqualified-kebab-opts)
-    (first (sql/query datasource ["SELECT * FROM assistant_phone_numbers WHERE id = ?" id] unqualified-kebab-opts))))
+                                                    :phone_number phone_number})
+    (first (jdbc/query db-spec ["SELECT * FROM assistant_phone_numbers WHERE id = ?" id]))))
 
 (defn find-channel-by-id
   "Finds a channel by its ID."
-  [datasource channel-id]
-  (first (sql/query datasource ["SELECT * FROM channels WHERE id = ?" channel-id] unqualified-kebab-opts)))
+  [db-spec channel-id]
+  (first (jdbc/query db-spec ["SELECT * FROM channels WHERE id = ?" channel-id])))
