@@ -28,8 +28,9 @@
     (Class/forName "org.postgresql.Driver")
     (println "PostgreSQL driver loaded successfully!")
     
-    (let [db-url (env "DATABASE_URL" "jdbc:postgresql://zapflow:zapflow123@localhost:5432/zapflow")]
-      (println (str "Database URL: " (clojure.string/replace db-url #":[^:@]+@" ":***@")))
+    (let [db-url (env "DATABASE_URL" "jdbc:postgresql://zapflow:zapflow123@localhost:5432/zapflow")
+          masked-url (clojure.string/replace db-url #":[^:@]+@" ":***@")]
+      (println (str "Database URL: " masked-url))
       (println "Creating datasource...")
       (jdbc/get-datasource db-url))
     (catch Exception e
