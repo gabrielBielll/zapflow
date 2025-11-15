@@ -5,6 +5,18 @@ import { googleAI } from '@genkit-ai/googleai';
 import { chroma, chromaIndexerRef, chromaRetrieverRef } from 'genkitx-chromadb';
 import express from 'express';
 
+// HARDCODED PRODUCTION VARIABLES FOR LOCAL DEVELOPMENT
+// Switch between local and production by commenting/uncommenting lines
+
+// PRODUCTION GEMINI API KEY
+process.env.GOOGLE_GENAI_API_KEY = "AIzaSyBOKeSudS26b5J0xKL_sKOEqX7Z2zgzUm0";
+
+// PRODUCTION CHROMA DB (if using external ChromaDB)
+// process.env.CHROMA_URL = "https://your-chroma-instance.com";
+
+// LOCAL CHROMA DB (default - uses local instance)
+// No need to set CHROMA_URL for local development
+
 // Configuração Correta (genkit)
 export const ai = genkit({
   plugins: [
@@ -125,7 +137,8 @@ export async function generateResponse(payload: any) {
 const app = express();
 app.use(express.json());
 
-const PORT = process.env.PORT || 8080;
+// HARDCODED PORT FOR LOCAL DEVELOPMENT
+const PORT = 4000;  // AI Service runs on port 4000 locally
 
 // Health check endpoint
 app.get('/health', (req, res) => {

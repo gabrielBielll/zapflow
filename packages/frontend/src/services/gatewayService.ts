@@ -1,7 +1,6 @@
 // services/gatewayService.ts
 import axios from 'axios';
-
-const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL || 'http://localhost:5001';
+import { GATEWAY_URL } from '../config/environment';
 
 export const getQRCode = async (): Promise<string> => {
   try {

@@ -20,8 +20,26 @@
             [environ.core :refer [env]])
   (:import [org.postgresql Driver]))
 
-;; Simple database spec like SMS Notifier - use the URL directly
-(def db-spec (env :database-url))
+;; HARDCODED PRODUCTION VARIABLES FOR LOCAL DEVELOPMENT
+;; Switch between local and production by commenting/uncommenting lines
+
+;; PRODUCTION DATABASE (CockroachDB)
+(def db-spec "postgresql://zapflow:i7cI3Qj40rJ2uO_wA12nuA@zapflow-db-10386.jxf.gcp-southamerica-east1.cockroachlabs.cloud:26257/defaultdb?sslmode=verify-full&sslfactory=org.postgresql.ssl.DefaultJavaSSLFactory")
+
+;; LOCAL DATABASE (uncomment to use local)
+;; (def db-spec "postgresql://zapflow:zapflow123@localhost:5432/zapflow")
+
+;; PRODUCTION AI SERVICE (Render)
+(def ai-service-url "https://zapflow-ai-service.onrender.com")
+
+;; LOCAL AI SERVICE (uncomment to use local)
+;; (def ai-service-url "http://localhost:4000")
+
+;; PRODUCTION GATEWAY (Render)
+(def gateway-url "https://zapflow-gateway.onrender.com")
+
+;; LOCAL GATEWAY (uncomment to use local)
+;; (def gateway-url "http://localhost:5001")
 
 ;; Test database connection like SMS Notifier
 (defn test-db-connection []
@@ -35,9 +53,6 @@
       (catch Exception e
         (println (str "ERRO ao conectar com o banco: " (.getMessage e)))
         (throw e)))))
-
-(def ai-service-url (env :ai-service-url "http://localhost:4000"))
-(def gateway-url (env :gateway-url "http://localhost:5001"))
 
 (defn health-check-handler [request]
   (try
@@ -136,7 +151,7 @@
     (core-api.db.core/migrate-with-jdbc db-spec)
     (println "Migrações do banco de dados concluídas!")
     
-    (let [port (Integer/parseInt (env :port "8080"))
+    (let [port 8080  ;; HARDCODED PORT FOR LOCAL DEVELOPMENT
           app (create-app)]
       (println (str "Iniciando servidor na porta " port "..."))
       (jetty/run-jetty app {:port port}))

@@ -20,7 +20,7 @@ export function ChatbotList() {
   useEffect(() => {
     async function fetchAssistants() {
       try {
-        const CORE_API_URL = process.env.NEXT_PUBLIC_CORE_API_URL || 'http://localhost:8080';
+        const { CORE_API_URL } = await import('../config/environment');
         const response = await fetch(`${CORE_API_URL}/api/v1/frontend/assistants`);
         if (!response.ok) {
           throw new Error('Failed to fetch assistants');
