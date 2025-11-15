@@ -4,6 +4,51 @@ import { defineFlow, z } from '@genkit-ai/core';
 import { googleAI } from '@genkit-ai/googleai';
 import { chroma, chromaIndexerRef, chromaRetrieverRef } from 'genkitx-chromadb';
 import express from 'express';
+import { DEEP_SAUDE_KNOWLEDGE, DeepSaudeKnowledgeService } from './knowledge/deepSaudeKnowledge';
+import { PromptBuilder, ChatMessage } from './utils/promptBuilder';
+import { ResponseValidator } from './utils/responseValidator';
+
+// Função para chamar a API do Gemini diretamente (baseada no exemplo HTML)
+async function callGeminiDirectly(prompt: string): Promise<string> {
+  const API_KEY = process.env.GOOGLE_GENAI_API_KEY;
+  const MODEL_NAME = 'gemini-2.5-flash-preview-09-2025';
+  const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${API_KEY}`;
+
+  const payload = {
+    contents: [{ parts: [{ text: prompt }] }],
+  };
+
+  try {
+    const response = await fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      const errorMsg = errorData?.error?.message || `Erro HTTP: ${response.status}`;
+      throw new Error(errorMsg);
+    }
+
+    const result = await response.json();
+
+    if (result.candidates && result.candidates[0]?.content?.parts?.[0]?.text) {
+      return result.candidates[0].content.parts[0].text;
+    } else {
+      // Caso de bloqueio de segurança ou resposta vazia
+      const blockReason = result.candidates?.[0]?.finishReason;
+      if (blockReason === 'SAFETY' || blockReason === 'OTHER') {
+        return "A resposta foi bloqueada por motivos de segurança.";
+      } else {
+        return "Não consegui processar a resposta. Tente novamente.";
+      }
+    }
+  } catch (error) {
+    console.error('Erro ao chamar API do Gemini diretamente:', error);
+    throw error;
+  }
+}
 
 // HARDCODED PRODUCTION VARIABLES FOR LOCAL DEVELOPMENT
 // Switch between local and production by commenting/uncommenting lines
@@ -17,16 +62,10 @@ process.env.GOOGLE_GENAI_API_KEY = "AIzaSyBOKeSudS26b5J0xKL_sKOEqX7Z2zgzUm0";
 // LOCAL CHROMA DB (default - uses local instance)
 // No need to set CHROMA_URL for local development
 
-// Configuração Correta (genkit)
+// Configuração Simplificada (genkit) - sem ChromaDB para base de conhecimento estática
 export const ai = genkit({
   plugins: [
     googleAI(),
-    chroma([
-      {
-        collectionName: 'zapflow_rag',
-        embedder: googleAI.embedder('text-embedding-004'),
-      },
-    ]),
   ],
 });
 
@@ -89,46 +128,66 @@ export async function indexDocument(payload: any) {
   }
 }
 
-// Helper function for generating responses
+// Helper function for generating responses with static knowledge base
 export async function generateResponse(payload: any) {
   try {
     const { assistant_id, query, history } = payload;
-    let ragContext = "No relevant information found in the knowledge base.";
+    
+    // Inicializar serviço de conhecimento
+    const knowledgeService = new DeepSaudeKnowledgeService();
+    const knowledgeBase = knowledgeService.getFullKnowledgeBase();
+    
+    // Converter histórico para o formato esperado
+    const chatHistory: ChatMessage[] = (history || []).map((msg: any) => ({
+      role: msg.role === 'user' ? 'user' : 'model',
+      content: msg.content
+    }));
 
+    let finalPrompt: string;
+    
     try {
-      const retrievedDocs = await ai.retrieve({
-        retriever: chromaRetrieverRef({ collectionName: 'zapflow_rag' }),
-        query,
-        options: { where: { assistant_id }, k: 3 },
-      });
-      if (retrievedDocs.length > 0) {
-          ragContext = retrievedDocs.map((doc: any) => doc.text).join('\n---\n');
+      // Validar parâmetros do prompt
+      if (!PromptBuilder.validatePromptParams(query, knowledgeBase)) {
+        throw new Error('Parâmetros inválidos para construção do prompt');
       }
+
+      // Construir prompt com base de conhecimento estática
+      finalPrompt = PromptBuilder.buildPromptWithKnowledge(query, chatHistory, knowledgeBase);
+      
+      console.log('Usando base de conhecimento estática da Deep Saúde');
     } catch (error) {
-        console.error('Error retrieving from vector store:', error);
-        // Proceed without RAG context if the vector store fails
+      console.error('Erro ao construir prompt com base de conhecimento:', error);
+      // Fallback para prompt simples
+      finalPrompt = PromptBuilder.buildSimplePrompt(query, chatHistory);
+      console.log('Usando prompt simples como fallback');
     }
 
-    const personalityPrompt = "You are a helpful and friendly assistant.";
-    const finalPrompt = `
-      ${personalityPrompt}
-      Context:
-      ${ragContext}
-      Chat History:
-      ${history.map((msg: any) => `${msg.role}: ${msg.content}`).join('\n')}
-      User's Question:
-      ${query}
-    `;
+    // Gerar resposta usando API direta do Gemini (como no exemplo HTML)
+    const response = await callGeminiDirectly(finalPrompt);
+    
+    let processedResponse = response;
 
-    const llmResponse = await ai.generate({
-      model: 'gemini-1.5-flash',
-      prompt: finalPrompt,
-    });
+    // Validar e sanitizar resposta
+    try {
+      processedResponse = ResponseValidator.processResponse(response, knowledgeBase);
+    } catch (error) {
+      console.error('Erro ao validar resposta:', error);
+      processedResponse = knowledgeBase.rules.unavailableResponse;
+    }
 
-    return { response: llmResponse.text };
+    return { response: processedResponse };
   } catch (error) {
-      console.error('Error generating LLM response:', error);
-      return { response: "I'm sorry, I encountered an error while generating a response. Please try again." };
+    console.error('Erro ao gerar resposta:', error);
+    
+    // Fallback para resposta de erro em português
+    const fallbackResponse = "Desculpe, encontrei um erro ao gerar uma resposta. Tente novamente.";
+    
+    try {
+      const knowledgeService = new DeepSaudeKnowledgeService();
+      return { response: knowledgeService.getUnavailableResponse() };
+    } catch {
+      return { response: fallbackResponse };
+    }
   }
 }
 
@@ -151,8 +210,11 @@ app.post('/generate', async (req, res) => {
     const { assistant_id, query, history } = req.body;
     
     if (!assistant_id || !query) {
+      console.warn('Requisição inválida: assistant_id e query são obrigatórios');
       return res.status(400).json({ error: 'assistant_id and query are required' });
     }
+
+    console.log(`Processando requisição para assistant_id: ${assistant_id}, query: "${query}"`);
 
     const result = await generateResponse({ 
       assistant_id, 
@@ -160,13 +222,24 @@ app.post('/generate', async (req, res) => {
       history: history || [] 
     });
     
+    console.log('Resposta gerada com sucesso');
     res.json(result);
   } catch (error) {
-    console.error('Error in /generate endpoint:', error);
-    res.status(500).json({ 
-      error: 'Failed to generate response',
-      message: error instanceof Error ? error.message : 'Unknown error'
-    });
+    console.error('Erro no endpoint /generate:', error);
+    
+    // Tentar usar resposta de fallback da base de conhecimento
+    try {
+      const knowledgeService = new DeepSaudeKnowledgeService();
+      const fallbackResponse = knowledgeService.getUnavailableResponse();
+      
+      res.status(200).json({ response: fallbackResponse });
+    } catch (fallbackError) {
+      console.error('Erro ao acessar resposta de fallback:', fallbackError);
+      res.status(500).json({ 
+        error: 'Failed to generate response',
+        message: 'Desculpe, encontrei um erro ao gerar uma resposta. Tente novamente.'
+      });
+    }
   }
 });
 

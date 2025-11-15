@@ -1,0 +1,126 @@
+# Docker Compose para desenvolvimento com WAHA integrado
+# Uso: docker-compose -f docker-compose.dev.yml up -d
+
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15
+    environment:
+      - POSTGRES_DB=zapflow
+      - POSTGRES_USER=zapflow
+      - POSTGRES_PASSWORD=zapflow123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U zapflow"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  waha:
+    image: devlikeapro/waha
+    ports:
+      - "3000:3000"
+    environment:
+      - WAHA_WEBHOOK_URL=http://gateway:8080/webhook
+      - WAHA_WEBHOOK_EVENTS=message
+      - DEBUG=1
+    volumes:
+      - waha_sessions:/app/sessions
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  gateway:
+    build:
+      context: ./packages/gateway
+      dockerfile: Dockerfile
+    ports:
+      - "8081:8080"
+    environment:
+      - NODE_ENV=development
+      - PORT=8080
+      - CORE_API_URL=http://core-api:8080/api
+      - WAHA_URL=http://waha:3000
+      - WAHA_WEBHOOK_URL=http://gateway:8080/webhook
+      - DEFAULT_PROVIDER=baileys
+      - DEBUG=gateway:*
+    volumes:
+      - ./packages/gateway:/usr/src/app
+      - /usr/src/app/node_modules
+    depends_on:
+      waha:
+        condition: service_healthy
+      core-api:
+        condition: service_started
+    restart: unless-stopped
+
+  core-api:
+    build:
+      context: ./packages/core-api
+      dockerfile: Dockerfile
+    ports:
+      - "8082:8080"
+    environment:
+      - APP_ENV=development
+      - DATABASE_URL=postgresql://zapflow:zapflow123@db:5432/zapflow
+      - AI_SERVICE_URL=http://ai-service:8080
+      - GATEWAY_URL=http://gateway:8080
+    volumes:
+      - ./packages/core-api:/usr/src/app
+    depends_on:
+      db:
+        condition: service_healthy
+      ai-service:
+        condition: service_started
+    restart: unless-stopped
+
+  ai-service:
+    build:
+      context: ./packages/ai-service
+      dockerfile: Dockerfile
+    ports:
+      - "8083:8080"
+    environment:
+      - NODE_ENV=development
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - DEBUG=ai-service:*
+    volumes:
+      - ./packages/ai-service:/usr/src/app
+      - /usr/src/app/node_modules
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./packages/frontend
+      dockerfile: Dockerfile
+    ports:
+      - "9002:9002"
+    environment:
+      - NODE_ENV=development
+      - NEXT_PUBLIC_CORE_API_URL=http://localhost:8082
+      - NEXT_PUBLIC_GATEWAY_URL=http://localhost:8081
+    volumes:
+      - ./packages/frontend:/usr/src/app
+      - /usr/src/app/node_modules
+      - /usr/src/app/.next
+    depends_on:
+      - core-api
+      - gateway
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  waha_sessions:
+
+networks:
+  default:
+    driver: bridge
+    name: zapflow_network

@@ -34,7 +34,7 @@ export default function CreateChatbotPage() {
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
-      const { CORE_API_URL } = await import('../../../config/environment');
+      const { CORE_API_URL } = await import('../../config/environment');
       console.log('🔍 CORE_API_URL being used:', CORE_API_URL);
       console.log('🔍 Submitting values:', values);
       

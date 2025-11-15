@@ -1,23 +1,38 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Loader2, MessageSquare, Plug, QrCode } from 'lucide-react';
 import { getQRCode } from '@/services/gatewayService';
-import Image from 'next/image';
+import QRCodeLib from 'qrcode';
 
 export default function ChannelsPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [qrCode, setQrCode] = useState<string | null>(null);
+  const [qrCodeImage, setQrCodeImage] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState(false); // Simulando o status da conexão
 
   const handleConnect = async () => {
     setIsLoading(true);
     setQrCode(null);
+    setQrCodeImage(null);
     try {
-      const qrCodeData = await getQRCode();
+      // Using a default channel ID for now - in production this would come from user/channel management
+      const channelId = 'whatsapp-channel-1';
+      const qrCodeData = await getQRCode(channelId);
       setQrCode(qrCodeData);
+      
+      // Generate QR code image from the data
+      const qrImageUrl = await QRCodeLib.toDataURL(qrCodeData, {
+        width: 256,
+        margin: 2,
+        color: {
+          dark: '#000000',
+          light: '#FFFFFF'
+        }
+      });
+      setQrCodeImage(qrImageUrl);
     } catch (error) {
       // TODO: Adicionar um tratamento de erro mais robusto (ex: toast notification)
       console.error('Failed to connect:', error);
@@ -73,7 +88,7 @@ export default function ChannelsPage() {
             </>
           )}
 
-          {qrCode && !isLoading && (
+          {qrCodeImage && !isLoading && (
             <>
                 <div className="flex items-center justify-center mb-4">
                     <QrCode className="h-12 w-12 text-primary"/>
@@ -82,12 +97,13 @@ export default function ChannelsPage() {
                 <p className="text-muted-foreground mb-6 max-w-sm">
                     Abra o WhatsApp no seu celular e escaneie o código abaixo para vincular seu número.
                 </p>
-                <div className="p-4 border rounded-md">
-                    <Image
-                        src={qrCode}
+                <div className="p-4 border rounded-md bg-white">
+                    <img
+                        src={qrCodeImage}
                         alt="QR Code do WhatsApp"
                         width={256}
                         height={256}
+                        className="mx-auto"
                     />
                 </div>
             </>

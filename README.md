@@ -26,6 +26,43 @@ Para economizar recursos do Render durante o desenvolvimento:
 
 📖 **Guia Completo**: [LOCAL_DEVELOPMENT_GUIDE.md](LOCAL_DEVELOPMENT_GUIDE.md)
 
+## 📱 Providers WhatsApp
+
+O ZapFlow suporta múltiplos providers para conectar ao WhatsApp:
+
+### Baileys (Padrão)
+- ✅ Biblioteca oficial do WhatsApp Web
+- ✅ Mais estável e confiável
+- ❌ Consome mais recursos
+
+### WAHA (HTTP API)
+- ✅ API HTTP leve e escalável
+- ✅ Suporte a múltiplas sessões
+- ✅ Melhor para produção
+- ❌ Requer serviço externo
+
+**Configuração rápida com Docker (Recomendado):**
+```bash
+# Iniciar ZapFlow completo com WAHA integrado
+./docker-waha.sh start
+
+# Testar providers
+./docker-waha.sh test
+```
+
+**Configuração manual do WAHA:**
+```bash
+# Instalar e configurar WAHA separadamente
+./setup-waha.sh start
+
+# Testar providers
+node test-providers.js
+```
+
+📖 **Guias Completos**: 
+- [DOCKER_WAHA_GUIDE.md](DOCKER_WAHA_GUIDE.md) - Docker integrado (recomendado)
+- [WAHA_SETUP_GUIDE.md](WAHA_SETUP_GUIDE.md) - Configuração manual
+
 ## 🚀 Quick Start
 
 ### Pré-requisitos

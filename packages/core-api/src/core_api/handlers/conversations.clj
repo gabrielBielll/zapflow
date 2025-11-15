@@ -7,15 +7,25 @@
 (defn list-conversation-history-handler
   "Handler to list conversation history for an assistant."
   [request]
-  (let [router-datasource (-> request :reitit.core/router :data :datasource)
-        request-datasource (:datasource request)
-        datasource (or router-datasource 
-                      request-datasource
-                      (let [db-url (or (System/getenv "DATABASE_URL") 
-                                      "jdbc:postgresql://zapflow:zapflow123@localhost:5432/zapflow")]
-                        (jdbc/get-datasource db-url)))
-        assistant-id (-> request :params :id)
-        history (db/list-conversation-history datasource {:assistant-id (java.util.UUID/fromString assistant-id)})]
-    {:status 200
-     :headers {"Content-Type" "application/json"}
-     :body (json/generate-string history)}))
+  (try
+    (let [db-spec (:db-spec request)
+          _ (println "=== CONVERSATION HISTORY REQUEST ===")
+          _ (println "Full request params:" (:params request))
+          _ (println "Path params:" (:path-params request))
+          assistant-id-str (or (-> request :params :id) (-> request :path-params :id))
+          _ (println "Assistant ID string:" assistant-id-str)
+          assistant-id (when assistant-id-str (java.util.UUID/fromString assistant-id-str))
+          _ (println "Assistant ID UUID:" assistant-id)
+          history (if assistant-id
+                    (db/list-conversation-history db-spec {:assistant-id assistant-id})
+                    [])]
+      (println "Found conversations count:" (count history))
+      {:status 200
+       :headers {"Content-Type" "application/json"}
+       :body (json/generate-string history)})
+    (catch Exception e
+      (println "ERROR in conversation history handler:" (.getMessage e))
+      (.printStackTrace e)
+      {:status 500
+       :headers {"Content-Type" "application/json"}
+       :body (json/generate-string {:error "Internal server error"})})))

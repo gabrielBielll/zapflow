@@ -21,7 +21,8 @@ check_port() {
 # Verificar portas necessárias
 echo "🔍 Verificando portas disponíveis..."
 check_port 3000 || exit 1
-check_port 4000 || exit 1  
+check_port 4000 || exit 1
+check_port 5001 || exit 1  
 check_port 8080 || exit 1
 
 echo "✅ Todas as portas estão disponíveis!"
@@ -70,8 +71,13 @@ echo "2️⃣ AI Service (Serviço de IA)"
 start_service "ai-service" "packages/ai-service" "npm run dev" "4000"
 echo ""
 
-# 3. Iniciar Frontend (Next.js)
-echo "3️⃣ Frontend (Next.js)"
+# 3. Iniciar Gateway Service (WhatsApp)
+echo "3️⃣ Gateway Service (WhatsApp)"
+start_service "gateway" "packages/gateway" "npm start" "5001"
+echo ""
+
+# 4. Iniciar Frontend (Next.js)
+echo "4️⃣ Frontend (Next.js)"
 start_service "frontend" "packages/frontend" "npm run dev" "3000"
 echo ""
 
@@ -81,10 +87,12 @@ echo "📱 Acesse a aplicação:"
 echo "   Frontend: http://localhost:3000"
 echo "   Core API: http://localhost:8080"
 echo "   AI Service: http://localhost:4000"
+echo "   Gateway Service: http://localhost:5001"
 echo ""
 echo "📊 Monitoramento:"
 echo "   Logs Core API: tail -f logs/core-api.log"
-echo "   Logs AI Service: tail -f logs/ai-service.log"  
+echo "   Logs AI Service: tail -f logs/ai-service.log"
+echo "   Logs Gateway: tail -f logs/gateway.log"  
 echo "   Logs Frontend: tail -f logs/frontend.log"
 echo ""
 echo "🛑 Para parar todos os serviços:"
