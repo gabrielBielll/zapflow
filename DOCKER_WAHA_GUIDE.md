@@ -5,6 +5,7 @@ Este guia mostra como usar o ZapFlow com WAHA integrado via Docker, oferecendo u
 ## 🚀 Quick Start
 
 ### 1. Iniciar todos os serviços
+
 ```bash
 # Iniciar ZapFlow completo com WAHA
 ./docker-waha.sh start
@@ -17,6 +18,7 @@ Este guia mostra como usar o ZapFlow com WAHA integrado via Docker, oferecendo u
 ```
 
 ### 2. Acessar os serviços
+
 - **Frontend**: http://localhost:9002
 - **Gateway**: http://localhost:8081
 - **WAHA**: http://localhost:3000
@@ -47,16 +49,18 @@ Este guia mostra como usar o ZapFlow com WAHA integrado via Docker, oferecendo u
 ```yaml
 # Serviços incluídos no docker-compose.yml
 services:
-  - db          # PostgreSQL (porta 5432)
-  - waha        # WAHA API (porta 3000)
-  - gateway     # Gateway WhatsApp (porta 8081)
-  - core-api    # API Principal (porta 8082)
-  - ai-service  # Serviço IA (porta 8083)
-  - frontend    # Interface Web (porta 9002)
+  - db # PostgreSQL (porta 5432)
+  - waha # WAHA API (porta 3000)
+  - gateway # Gateway WhatsApp (porta 8081)
+  - core-api # API Principal (porta 8082)
+  - ai-service # Serviço IA (porta 8083)
+  - frontend # Interface Web (porta 9002)
 ```
 
 ### Rede Interna
+
 Os serviços se comunicam via rede Docker interna:
+
 - `gateway` → `waha:3000`
 - `gateway` → `core-api:8080`
 - `core-api` → `ai-service:8080`
@@ -65,6 +69,7 @@ Os serviços se comunicam via rede Docker interna:
 ## 🔧 Configuração
 
 ### Variáveis de Ambiente
+
 O WAHA já está pré-configurado no docker-compose.yml:
 
 ```yaml
@@ -75,17 +80,20 @@ waha:
 ```
 
 ### Volumes Persistentes
+
 - `postgres_data`: Dados do PostgreSQL
 - `waha_sessions`: Sessões do WhatsApp (WAHA)
 
 ## 📱 Usando os Providers
 
 ### 1. Listar providers disponíveis
+
 ```bash
 curl http://localhost:8081/providers
 ```
 
 ### 2. Inicializar com Baileys (padrão)
+
 ```bash
 curl -X POST http://localhost:8081/init-session \
   -H "Content-Type: application/json" \
@@ -93,6 +101,7 @@ curl -X POST http://localhost:8081/init-session \
 ```
 
 ### 3. Inicializar com WAHA
+
 ```bash
 curl -X POST http://localhost:8081/init-session \
   -H "Content-Type: application/json" \
@@ -100,6 +109,7 @@ curl -X POST http://localhost:8081/init-session \
 ```
 
 ### 4. Verificar status
+
 ```bash
 # Baileys
 curl http://localhost:8081/status/canal1/baileys
@@ -109,6 +119,7 @@ curl http://localhost:8081/status/canal1/waha
 ```
 
 ### 5. Enviar mensagem
+
 ```bash
 curl -X POST http://localhost:8081/send-message \
   -H "Content-Type: application/json" \
@@ -123,6 +134,7 @@ curl -X POST http://localhost:8081/send-message \
 ## 🧪 Testes Automatizados
 
 ### Teste completo da integração
+
 ```bash
 # Testar todos os providers
 node test-providers.js
@@ -135,6 +147,7 @@ node test-providers.js baileys
 ```
 
 ### Teste manual via curl
+
 ```bash
 # 1. Verificar se WAHA está funcionando
 curl http://localhost:3000/api/health
@@ -152,6 +165,7 @@ curl http://localhost:8081/active-providers
 ## 📊 Monitoramento
 
 ### Logs em tempo real
+
 ```bash
 # Todos os serviços
 ./docker-waha.sh logs
@@ -164,6 +178,7 @@ curl http://localhost:8081/active-providers
 ```
 
 ### Status dos containers
+
 ```bash
 # Status detalhado
 ./docker-waha.sh status
@@ -176,7 +191,9 @@ docker stats
 ```
 
 ### Health Checks
+
 O WAHA tem health check automático:
+
 ```bash
 # Verificar health do WAHA
 docker-compose ps waha
@@ -185,6 +202,7 @@ docker-compose ps waha
 ## 🔧 Troubleshooting
 
 ### WAHA não inicia
+
 ```bash
 # Ver logs do WAHA
 ./docker-waha.sh logs waha
@@ -197,6 +215,7 @@ docker-compose restart waha
 ```
 
 ### Gateway não conecta ao WAHA
+
 ```bash
 # Verificar rede Docker
 docker network ls
@@ -207,6 +226,7 @@ docker-compose exec gateway curl http://waha:3000/api/health
 ```
 
 ### Webhook não funciona
+
 ```bash
 # Verificar se o webhook está configurado
 curl http://localhost:3000/api/sessions/sua_sessao/webhooks
@@ -218,6 +238,7 @@ curl -X POST http://localhost:8081/webhook/canal1/waha \
 ```
 
 ### Problemas de performance
+
 ```bash
 # Ver uso de recursos
 docker stats
@@ -235,12 +256,14 @@ docker-compose up -d --build
 ### Configurações recomendadas para produção
 
 1. **Usar variáveis de ambiente externas**:
+
 ```bash
 # Criar arquivo .env na raiz do projeto
 echo "GEMINI_API_KEY=sua_chave_aqui" > .env
 ```
 
 2. **Configurar recursos**:
+
 ```yaml
 # No docker-compose.yml, adicionar limites
 waha:
@@ -248,16 +271,18 @@ waha:
     resources:
       limits:
         memory: 512M
-        cpus: '0.5'
+        cpus: "0.5"
 ```
 
 3. **Backup das sessões**:
+
 ```bash
 # Backup do volume das sessões WAHA
 docker run --rm -v zapflow_waha_sessions:/data -v $(pwd):/backup alpine tar czf /backup/waha_sessions_backup.tar.gz -C /data .
 ```
 
 4. **Monitoramento**:
+
 ```bash
 # Adicionar ao crontab para monitoramento
 */5 * * * * /path/to/docker-waha.sh status > /var/log/zapflow-status.log
@@ -266,11 +291,13 @@ docker run --rm -v zapflow_waha_sessions:/data -v $(pwd):/backup alpine tar czf 
 ## 🔄 Migração
 
 ### De desenvolvimento local para Docker
+
 1. Parar serviços locais
 2. Executar `./docker-waha.sh start`
 3. Migrar dados se necessário
 
 ### Entre providers
+
 ```bash
 # Parar provider atual
 curl -X DELETE http://localhost:8081/cleanup/canal1/baileys
@@ -283,6 +310,7 @@ curl -X POST http://localhost:8081/init-session \
 ## 📈 Escalabilidade
 
 ### Múltiplas instâncias WAHA
+
 Para escalar, você pode adicionar mais instâncias WAHA:
 
 ```yaml
@@ -290,13 +318,14 @@ Para escalar, você pode adicionar mais instâncias WAHA:
 waha-1:
   image: devlikeapro/waha
   ports: ["3001:3000"]
-  
+
 waha-2:
   image: devlikeapro/waha
   ports: ["3002:3000"]
 ```
 
 ### Load Balancer
+
 Use nginx ou traefik para distribuir carga entre instâncias.
 
 ## 🎯 Próximos Passos

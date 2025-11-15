@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Smartphone, CheckCircle, XCircle, RefreshCw } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Loader2, Smartphone, CheckCircle, XCircle, RefreshCw, Zap, Globe } from 'lucide-react';
 import QRCode from 'qrcode';
 
 interface WhatsAppConnectionProps {
@@ -12,6 +13,7 @@ interface WhatsAppConnectionProps {
 }
 
 type ConnectionStatus = 'disconnected' | 'pending_qr' | 'ready' | 'error';
+type ProviderType = 'baileys' | 'waha';
 
 export function WhatsAppConnection({ assistantId }: WhatsAppConnectionProps) {
   const [status, setStatus] = useState<ConnectionStatus>('disconnected');
@@ -19,6 +21,29 @@ export function WhatsAppConnection({ assistantId }: WhatsAppConnectionProps) {
   const [channelId, setChannelId] = useState<string>('');
   const [error, setError] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedProvider, setSelectedProvider] = useState<ProviderType>('waha');
+  const [availableProviders, setAvailableProviders] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetchAvailableProviders();
+  }, []);
+
+  const fetchAvailableProviders = async () => {
+    try {
+      const response = await fetch('http://localhost:8081/providers');
+      if (response.ok) {
+        const data = await response.json();
+        setAvailableProviders(data.providers || []);
+      }
+    } catch (error) {
+      console.error('Error fetching providers:', error);
+      // Set default providers if API fails
+      setAvailableProviders([
+        { type: 'baileys', name: 'Baileys (Oficial)', description: 'Biblioteca oficial do WhatsApp Web' },
+        { type: 'waha', name: 'WAHA (HTTP API)', description: 'API HTTP para WhatsApp' }
+      ]);
+    }
+  };
 
   const initializeConnection = async () => {
     setIsLoading(true);
@@ -43,13 +68,20 @@ export function WhatsAppConnection({ assistantId }: WhatsAppConnectionProps) {
       const newChannelId = channelData.id;
       setChannelId(newChannelId);
 
-      // Then, initialize session with gateway
+      // Then, initialize session with gateway using selected provider
       const sessionResponse = await fetch('http://localhost:8081/init-session', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ channel_id: newChannelId }),
+        body: JSON.stringify({ 
+          channel_id: newChannelId,
+          provider: selectedProvider,
+          config: selectedProvider === 'waha' ? {
+            url: 'http://waha:3000',
+            webhookUrl: `http://host.docker.internal:8081/webhook/${newChannelId}/${selectedProvider}`
+          } : {}
+        }),
       });
 
       if (!sessionResponse.ok) {
@@ -88,15 +120,15 @@ export function WhatsAppConnection({ assistantId }: WhatsAppConnectionProps) {
       pollAttempts++;
       
       try {
-        const response = await fetch(`http://localhost:8081/status/${channelId}`);
+        const response = await fetch(`http://localhost:8081/status/${channelId}/${selectedProvider}`);
         if (response.ok) {
           const data = await response.json();
-          setStatus(data.status);
+          setStatus(data.status?.status || data.status);
           
-          if (data.status === 'ready') {
+          if (data.status?.status === 'ready' || data.status === 'ready') {
             clearInterval(pollInterval);
-            console.log('WhatsApp connected successfully');
-          } else if (data.status === 'disconnected') {
+            console.log(`WhatsApp connected successfully via ${selectedProvider}`);
+          } else if (data.status?.status === 'disconnected' || data.status === 'disconnected') {
             clearInterval(pollInterval);
             setError('Conexão WhatsApp foi perdida');
             setStatus('error');
@@ -189,6 +221,52 @@ export function WhatsAppConnection({ assistantId }: WhatsAppConnectionProps) {
         {error && (
           <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-md">
             <p className="text-sm text-destructive">{error}</p>
+          </div>
+        )}
+
+        {/* Provider Selection */}
+        {(status === 'disconnected' || status === 'error') && (
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Escolha o Provider:</label>
+            <Select value={selectedProvider} onValueChange={(value: ProviderType) => setSelectedProvider(value)}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Selecione um provider" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="waha">
+                  <div className="flex items-center gap-2">
+                    <Globe className="w-4 h-4" />
+                    <div>
+                      <div className="font-medium">WAHA (HTTP API)</div>
+                      <div className="text-xs text-muted-foreground">API HTTP para WhatsApp - Recomendado</div>
+                    </div>
+                  </div>
+                </SelectItem>
+                <SelectItem value="baileys">
+                  <div className="flex items-center gap-2">
+                    <Zap className="w-4 h-4" />
+                    <div>
+                      <div className="font-medium">Baileys (Oficial)</div>
+                      <div className="text-xs text-muted-foreground">Biblioteca oficial do WhatsApp Web</div>
+                    </div>
+                  </div>
+                </SelectItem>
+              </SelectContent>
+            </Select>
+            {selectedProvider === 'waha' && (
+              <div className="p-2 bg-blue-50 border border-blue-200 rounded-md">
+                <p className="text-xs text-blue-800">
+                  <strong>WAHA:</strong> Mais leve e estável. Funciona via Docker com dashboard próprio em localhost:3000
+                </p>
+              </div>
+            )}
+            {selectedProvider === 'baileys' && (
+              <div className="p-2 bg-green-50 border border-green-200 rounded-md">
+                <p className="text-xs text-green-800">
+                  <strong>Baileys:</strong> Biblioteca oficial, mais recursos mas pode ser menos estável
+                </p>
+              </div>
+            )}
           </div>
         )}
 

@@ -42,19 +42,20 @@ services:
       - waha
 
   waha:
-    image: devlikeapro/waha:2024.10.2
+    image: devlikeapro/waha:latest
+    platform: linux/amd64
+    environment:
+      - WHATSAPP_HOOK_URL=http://host.docker.internal:8081/webhook
+      - WHATSAPP_DEFAULT_ENGINE=GOWS
+      - WHATSAPP_HOOK_EVENTS=message
+      - WAHA_NO_API_KEY=true
+      - WAHA_DASHBOARD_NO_PASSWORD=true
+      - WHATSAPP_SWAGGER_NO_PASSWORD=true
+    volumes:
+      - waha_sessions:/app/.sessions
+      - waha_media:/app/.media
     ports:
       - "3000:3000"
-    environment:
-      - WAHA_WEBHOOK_URL=http://gateway:8080/webhook
-      - WAHA_WEBHOOK_EVENTS=message
-      - WHATSAPP_API_HOSTNAME=0.0.0.0
-      - WHATSAPP_API_PORT=3000
-      - WAHA_PRINT_QR=false
-      - WAHA_LOG_LEVEL=info
-      - WAHA_API_KEY=test123
-    volumes:
-      - waha_sessions:/app/sessions
     restart: unless-stopped
 
   core-api:
@@ -85,6 +86,7 @@ services:
 volumes:
   postgres_data:
   waha_sessions:
+  waha_media:
 
 networks:
   default:
