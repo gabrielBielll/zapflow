@@ -1,8 +1,30 @@
-# ZapFlow
+# 🤖 ZapFlow
 
 Bem-vindo ao ZapFlow!
 
 O ZapFlow é uma plataforma de código aberto para a criação de assistentes virtuais inteligentes para WhatsApp, projetada para automação de vendas e atendimento ao cliente.
+
+## 🚀 Desenvolvimento Local (Recomendado)
+
+Para economizar recursos do Render durante o desenvolvimento:
+
+```bash
+# Iniciar todos os serviços localmente (apontando para produção)
+./start-local-dev.sh
+
+# Testar se tudo está funcionando
+./test-local.sh
+
+# Parar todos os serviços
+./stop-local-dev.sh
+```
+
+**Acesso Local:**
+- Frontend: http://localhost:3000
+- Core API: http://localhost:8080  
+- AI Service: http://localhost:4000
+
+📖 **Guia Completo**: [LOCAL_DEVELOPMENT_GUIDE.md](LOCAL_DEVELOPMENT_GUIDE.md)
 
 ## 🚀 Quick Start
 
