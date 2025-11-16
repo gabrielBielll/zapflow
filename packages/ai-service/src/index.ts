@@ -196,8 +196,8 @@ export async function generateResponse(payload: any) {
 const app = express();
 app.use(express.json());
 
-// HARDCODED PORT FOR LOCAL DEVELOPMENT
-const PORT = 4000;  // AI Service runs on port 4000 locally
+// PORT FOR DOCKER DEPLOYMENT
+const PORT = 8080;  // AI Service runs on port 8080 in Docker
 
 // Health check endpoint
 app.get('/health', (req, res) => {

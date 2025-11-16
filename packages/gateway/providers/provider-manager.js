@@ -131,16 +131,58 @@ class ProviderManager {
 
   // Handle webhook for WAHA providers
   async handleWebhook(channelId, providerType, messageData) {
-    const key = `${channelId}_${providerType}`;
-    const provider = this.providers.get(key);
+    const axios = require('axios');
+    const coreApiUrl = process.env.CORE_API_URL || 'http://localhost:8080';
     
-    if (!provider || providerType !== 'waha') {
-      console.log(`Webhook ignored: provider not found or not WAHA type`);
-      return;
-    }
+    try {
+      console.log(`=== PROVIDER MANAGER PROCESSING WEBHOOK ===`);
+      console.log(`Channel: ${channelId}, Provider: ${providerType}`);
+      console.log(`Message from: ${messageData.from}, FromMe: ${messageData.fromMe}, Text: "${messageData.body}"`);
+      
+      // Skip messages sent by the bot itself (additional check)
+      if (messageData.fromMe === true) {
+        console.log('Provider Manager: Ignoring message sent by bot itself');
+        return { status: 'ignored', reason: 'own message' };
+      }
+      
+      // Send message to Core API for processing
+      const response = await axios.post(`${coreApiUrl}/api/v1/webhook/whatsapp/message`, {
+        body: messageData.body,
+        from: messageData.from,
+        channel_id: channelId
+      }, {
+        timeout: 30000,
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
 
-    if (typeof provider.handleWebhookMessage === 'function') {
-      await provider.handleWebhookMessage(messageData);
+      console.log('Core API processed webhook successfully');
+      
+    } catch (error) {
+      console.error('Error processing webhook in Provider Manager:', error);
+      
+      // Send error message back to user via provider
+      const key = `${channelId}_${providerType}`;
+      let provider = this.providers.get(key);
+      
+      // If provider doesn't exist and it's WAHA, create it automatically
+      if (!provider && providerType === 'waha') {
+        console.log(`Creating WAHA provider for channel ${channelId} automatically`);
+        provider = this.getProvider(channelId, providerType, {
+          url: process.env.WAHA_URL || 'http://localhost:3000'
+        });
+        // Set status as ready since the webhook indicates it's working
+        provider.status = 'ready';
+      }
+      
+      if (provider && typeof provider.sendMessage === 'function') {
+        try {
+          await provider.sendMessage(messageData.from, 'Desculpe, ocorreu um erro ao processar sua mensagem. Tente novamente.');
+        } catch (sendError) {
+          console.error('Error sending error message:', sendError);
+        }
+      }
     }
   }
 }

@@ -143,7 +143,84 @@ app.get('/active-providers', (req, res) => {
     }
 });
 
-// Webhook endpoint for WAHA
+// Webhook endpoint for WAHA (generic)
+app.post('/webhook', async (req, res) => {
+    const messageData = req.body;
+    
+    try {
+        console.log('=== WAHA WEBHOOK RECEIVED ===');
+        console.log('Raw webhook data:', JSON.stringify(messageData, null, 2));
+        
+        // Validate webhook structure
+        if (!messageData) {
+            console.error('Webhook validation failed: Empty message data');
+            return res.status(400).send({ error: 'Invalid webhook: empty data' });
+        }
+
+        // Handle different WAHA webhook formats
+        let processedMessage;
+        
+        // Check if it's a message event
+        if (messageData.event === 'message' && messageData.payload) {
+            // New WAHA format with event wrapper
+            processedMessage = messageData.payload;
+            console.log('Processing WAHA event format message');
+        } else if (messageData.from && messageData.body !== undefined) {
+            // Direct message format
+            processedMessage = messageData;
+            console.log('Processing direct WAHA message format');
+        } else {
+            console.log('Webhook ignored: not a message event or invalid format');
+            return res.status(200).send({ status: 'ignored - not a message' });
+        }
+
+        // Skip messages sent by the bot itself (CRITICAL for avoiding loops)
+        if (processedMessage.fromMe === true) {
+            console.log('Webhook ignored: message sent by bot itself (fromMe=true)');
+            return res.status(200).send({ status: 'ignored - own message' });
+        }
+
+        // Validate required fields
+        if (!processedMessage.from || processedMessage.body === undefined) {
+            console.error('Webhook validation failed: missing required fields (from/body)');
+            return res.status(400).send({ error: 'Invalid webhook: missing from or body' });
+        }
+
+        // Skip empty messages
+        if (!processedMessage.body || processedMessage.body.trim() === '') {
+            console.log('Webhook ignored: empty message body');
+            return res.status(200).send({ status: 'ignored - empty message' });
+        }
+
+        console.log(`Processing message from: ${processedMessage.from}`);
+        console.log(`Message text: "${processedMessage.body}"`);
+        
+        // For WAHA, we'll use a default channel and provider
+        const channel_id = messageData.session || processedMessage.session || 'default';
+        const provider = 'waha';
+        
+        console.log(`Using channel_id: ${channel_id}, provider: ${provider}`);
+        
+        // Process webhook through provider manager
+        const result = await providerManager.handleWebhook(channel_id, provider, processedMessage);
+        
+        // If message was ignored, return appropriate status
+        if (result && result.status === 'ignored') {
+            console.log(`Webhook ignored: ${result.reason}`);
+            return res.status(200).send({ status: `ignored - ${result.reason}` });
+        }
+        
+        console.log('Webhook processed successfully');
+        res.status(200).send({ status: 'webhook processed' });
+    } catch (error) {
+        console.error('=== WEBHOOK ERROR ===');
+        console.error('Error processing WAHA webhook:', error);
+        console.error('Stack trace:', error.stack);
+        res.status(500).send({ error: 'Failed to process webhook', details: error.message });
+    }
+});
+
+// Webhook endpoint for WAHA (with parameters)
 app.post('/webhook/:channel_id/:provider', async (req, res) => {
     const { channel_id, provider } = req.params;
     const messageData = req.body;

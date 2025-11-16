@@ -10,18 +10,12 @@
 (defn init-whatsapp-channel-handler
   "Handler to initialize a new WhatsApp channel for an assistant."
   [request]
-  (let [router-datasource (-> request :reitit.core/router :data :datasource)
-        request-datasource (:datasource request)
-        datasource (or router-datasource 
-                      request-datasource
-                      (let [db-url (or (System/getenv "DATABASE_URL") 
-                                      "jdbc:postgresql://zapflow:zapflow123@localhost:5432/zapflow")]
-                        (jdbc/get-datasource db-url)))
+  (let [db-spec (:db-spec request)
         assistant-id (-> request :params :id)
         channel-data {:assistant_id (java.util.UUID/fromString assistant-id)
                       :channel_type "whatsapp"
                       :status "pending"}]
-    (let [new-channel (db/create-channel datasource channel-data)
+    (let [new-channel (db/create-channel db-spec channel-data)
           channel-id (:id new-channel)]
       (try
         (let [gateway-response (client/post (str gateway-url "/init-session")
@@ -41,28 +35,22 @@
 (defn whatsapp-status-webhook-handler
   "Handler for receiving status updates from the WhatsApp gateway."
   [request]
-  (let [router-datasource (-> request :reitit.core/router :data :datasource)
-        request-datasource (:datasource request)
-        datasource (or router-datasource 
-                      request-datasource
-                      (let [db-url (or (System/getenv "DATABASE_URL") 
-                                      "jdbc:postgresql://zapflow:zapflow123@localhost:5432/zapflow")]
-                        (jdbc/get-datasource db-url)))
+  (let [db-spec (:db-spec request)
         status-update (-> request :body slurp (json/parse-string true))
         channel-id (-> status-update :channel_id java.util.UUID/fromString)
         status (:status status-update)
         phone-number (:phone_number status-update)]
     
     ;; Update channel status
-    (db/update-channel-status datasource {:id channel-id :status status})
+    (db/update-channel-status db-spec {:id channel-id :status status})
     
     ;; If status is ready and we have a phone number, create the association
     (when (and (= status "ready") phone-number)
-      (let [channel (db/find-channel-by-id datasource channel-id)
+      (let [channel (db/find-channel-by-id db-spec channel-id)
             assistant-id (:assistant_id channel)]
         (when assistant-id
           (try
-            (db/create-assistant-phone-number datasource {:assistant_id assistant-id
+            (db/create-assistant-phone-number db-spec {:assistant_id assistant-id
                                                         :phone_number phone-number})
             (println (str "Created phone number association: " phone-number " -> " assistant-id))
             (catch Exception e

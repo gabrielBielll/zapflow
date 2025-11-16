@@ -23,11 +23,16 @@
 ;; HARDCODED PRODUCTION VARIABLES FOR LOCAL DEVELOPMENT
 ;; Switch between local and production by commenting/uncommenting lines
 
-;; PRODUCTION DATABASE (CockroachDB)
-(def db-spec "postgresql://zapflow:i7cI3Qj40rJ2uO_wA12nuA@zapflow-db-10386.jxf.gcp-southamerica-east1.cockroachlabs.cloud:26257/defaultdb?sslmode=verify-full&sslfactory=org.postgresql.ssl.DefaultJavaSSLFactory")
+;; PRODUCTION DATABASE (CockroachDB) - commented for local development
+;; (def db-spec "postgresql://zapflow:i7cI3Qj40rJ2uO_wA12nuA@zapflow-db-10386.jxf.gcp-southamerica-east1.cockroachlabs.cloud:26257/defaultdb?sslmode=verify-full&sslfactory=org.postgresql.ssl.DefaultJavaSSLFactory")
 
-;; LOCAL DATABASE (uncomment to use local)
-;; (def db-spec "postgresql://zapflow:zapflow123@localhost:5432/zapflow")
+;; LOCAL DATABASE (Docker)
+(def db-spec {:dbtype "postgresql"
+              :dbname "zapflow"
+              :host "db"
+              :port 5432
+              :user "zapflow"
+              :password "zapflow123"})
 
 ;; PRODUCTION AI SERVICE (Render)
 (def ai-service-url "https://zapflow-ai-service.onrender.com")

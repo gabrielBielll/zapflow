@@ -6,10 +6,11 @@ class WahaProvider extends BaseProvider {
     super(channelId);
     this.wahaUrl = wahaConfig.url || process.env.WAHA_URL || 'http://localhost:3000';
     this.wahaApiKey = wahaConfig.apiKey || process.env.WAHA_API_KEY;
-    this.sessionName = `session_${channelId}`;
+    // WAHA Core only supports 'default' session
+    this.sessionName = 'default';
     this.currentQR = null;
-    this.coreApiUrl = process.env.CORE_API_URL || 'http://localhost:8080/api';
-    this.webhookUrl = wahaConfig.webhookUrl || process.env.WAHA_WEBHOOK_URL;
+    this.coreApiUrl = process.env.CORE_API_URL || 'http://core-api:8080';
+    this.webhookUrl = wahaConfig.webhookUrl || process.env.WAHA_WEBHOOK_URL || 'http://gateway:8081/webhook';
     
     // Configure axios instance for WAHA API
     this.wahaClient = axios.create({
@@ -47,6 +48,8 @@ class WahaProvider extends BaseProvider {
       };
 
       console.log(`Starting WAHA session: ${this.sessionName}`);
+      console.log(`Configuring webhook URL: ${this.webhookUrl}`);
+      console.log(`Session config:`, JSON.stringify(sessionConfig, null, 2));
       const response = await this.wahaClient.post('/api/sessions/start', sessionConfig);
       
       if (response.data && response.data.name) {
@@ -197,46 +200,20 @@ class WahaProvider extends BaseProvider {
     return { status: 'cleaned', provider: 'waha' };
   }
 
-  // Handle incoming messages via webhook
+  // Handle incoming messages via webhook (simplified - main logic is in Provider Manager)
   async handleWebhookMessage(messageData) {
-    try {
-      // Skip messages sent by the bot itself
-      if (messageData.fromMe) return;
-
-      const messageText = messageData.body || messageData.text || '';
-      if (!messageText) return;
-
-      console.log(`WAHA received message from ${messageData.from}: ${messageText}`);
-
-      // Send message to AI service for processing
-      const response = await axios.post(`${this.coreApiUrl}/v1/frontend/conversations/generate-response`, {
-        assistant_id: 'default',
-        query: messageText,
-        history: []
-      }, {
-        timeout: 30000
-      });
-
-      if (response.data && response.data.response) {
-        // Send AI response back to WhatsApp
-        await this.sendMessage(messageData.from, response.data.response);
-        console.log(`WAHA AI response sent to ${messageData.from}: ${response.data.response}`);
-      } else {
-        console.log('No response from AI service');
-      }
-    } catch (error) {
-      console.error('Error processing incoming message in WAHA:', error);
-      try {
-        await this.sendMessage(messageData.from, 'Desculpe, ocorreu um erro ao processar sua mensagem. Tente novamente.');
-      } catch (sendError) {
-        console.error('Error sending error message in WAHA:', sendError);
-      }
-    }
+    // This method is kept for compatibility but the main logic is now in Provider Manager
+    console.log(`WAHA Provider: Message handling delegated to Provider Manager`);
   }
 
   formatPhoneNumber(phone) {
+    console.log(`Formatting phone number: ${phone}`);
+    
+    // Handle WAHA format (remove @c.us if present)
+    let cleaned = phone.replace(/@c\.us$/, '');
+    
     // Remove any non-numeric characters except +
-    let cleaned = phone.replace(/[^\d+]/g, '');
+    cleaned = cleaned.replace(/[^\d+]/g, '');
     
     // Remove + if present
     if (cleaned.startsWith('+')) {
@@ -248,6 +225,12 @@ class WahaProvider extends BaseProvider {
       cleaned = `55${cleaned}`;
     }
     
+    // Validate Brazilian phone number format
+    if (cleaned.length < 12 || cleaned.length > 13) {
+      console.warn(`Invalid phone number length: ${cleaned} (length: ${cleaned.length})`);
+    }
+    
+    console.log(`Formatted phone number: ${cleaned}`);
     return cleaned;
   }
 }
