@@ -41,4 +41,4 @@ EXPOSE 10000
 
 # Inicia o app usando a variável $PORT fornecida pelo Render
 # Usamos 'npx' para executar o 'next' diretamente e garantir que a $PORT seja usada.
-CMD ["sh", "-c", "npx next start -p $PORT"]
+CMD ["sh", "-c", "npx next start -p ${PORT:-9002}"]
